@@ -1,0 +1,1 @@
+export { ViewListRoomPostPage } from './ViewListRoomPostPage';

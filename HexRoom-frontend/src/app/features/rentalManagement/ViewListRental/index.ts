@@ -1,0 +1,1 @@
+export { ViewListRentalPage } from './ViewListRentalPage';

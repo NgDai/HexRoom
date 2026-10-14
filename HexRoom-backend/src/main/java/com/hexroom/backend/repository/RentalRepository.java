@@ -1,0 +1,19 @@
+package com.hexroom.backend.repository;
+
+import com.hexroom.backend.entity.Rental;
+import com.hexroom.backend.entity.enums.RentalStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+import java.util.UUID;
+
+@Repository
+public interface RentalRepository extends JpaRepository<Rental, UUID>, JpaSpecificationExecutor<Rental> {
+
+    Page<Rental> findByOwnerId(UUID ownerId, Pageable pageable);
+
+    Page<Rental> findByStatus(RentalStatus status, Pageable pageable);
+}

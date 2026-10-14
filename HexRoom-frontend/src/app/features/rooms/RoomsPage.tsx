@@ -1,0 +1,921 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import {
+    MapPin, Camera, Search, SlidersHorizontal, ShieldCheck,
+    CheckCircle2, Clock, AlertTriangle, Check, Users, Sparkles,
+    ChevronRight, Zap, Phone
+} from 'lucide-react';
+import { Header, Footer } from '@/app/features/home/components';
+import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
+import { getPublicRoomsRequest, type PublicRoomItem, type PublicRoomsSort } from '@/lib/api';
+import { useRoomTypes } from '@/app/hooks/useRoomTypes';
+import { mapPublicRoomToFavorite } from '@/lib/utils/mapPublicRoomToFavorite';
+import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
+import { adaptRoom } from '@/lib/room-adapter';
+import {
+    getRoomLandlordAndInspection,
+    getRoomCostHighlights
+} from '@/lib/room-landlord-data';
+import './RoomsPage.css';
+
+const PAGE_SIZE = 12;
+
+const SORT_OPTIONS: { value: PublicRoomsSort; labelKey: string }[] = [
+    { value: 'newest', labelKey: 'rooms.sortNewest' },
+    { value: 'price_asc', labelKey: 'rooms.sortPriceAsc' },
+    { value: 'price_desc', labelKey: 'rooms.sortPriceDesc' },
+];
+
+type PricePreset = { id: string; min?: number; max?: number; labelKey: string };
+
+const PRICE_PRESETS: PricePreset[] = [
+    { id: 'any', labelKey: 'rooms.priceAny' },
+    { id: 'lt3m', max: 3_000_000, labelKey: 'rooms.priceUnder3m' },
+    { id: '3_7m', min: 3_000_000, max: 7_000_000, labelKey: 'rooms.price3to7m' },
+    { id: '7_15m', min: 7_000_000, max: 15_000_000, labelKey: 'rooms.price7to15m' },
+    { id: 'gt15m', min: 15_000_000, labelKey: 'rooms.priceOver15m' },
+];
+
+function formatPrice(price: number, tPerMillion: string, tPerDong: string): string {
+    if (price >= 1_000_000) {
+        const millions = price / 1_000_000;
+        return `${Number.isInteger(millions) ? millions : millions.toFixed(1)} ${tPerMillion}`;
+    }
+    return `${price.toLocaleString('vi-VN')} ${tPerDong}`;
+}
+
+function parseSortParam(raw: string | null): PublicRoomsSort {
+    if (raw === 'recommended' || raw === 'price_asc' || raw === 'price_desc') return raw;
+    return 'newest';
+}
+
+function parsePriceQuery(value: string | null): number | undefined {
+    if (value == null || value === '') return undefined;
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return undefined;
+    return Math.round(n);
+}
+
+function presetForRange(min?: number, max?: number): PricePreset | null {
+    for (const p of PRICE_PRESETS) {
+        if (p.id === 'any') {
+            if (min == null && max == null) return p;
+            continue;
+        }
+        if (p.min === min && p.max === max) return p;
+    }
+    return null;
+}
+
+function formatRoomTypeBadge(type?: string): string {
+    if (!type) return 'Phòng trọ';
+    const t = type.toUpperCase();
+    if (t.includes('STUDIO')) return 'Studio';
+    if (t.includes('APARTMENT') || t.includes('CĂN HỘ')) return 'Căn hộ mini';
+    if (t.includes('SHARED') || t.includes('GHÉP') || t.includes('COLIVING')) return 'Ở ghép / Coliving';
+    if (t.includes('PRIVATE') || t.includes('SINGLE') || t.includes('ĐƠN')) return 'Phòng khép kín';
+    return 'Phòng trọ';
+}
+
+export function RoomsPage() {
+    const navigate = useNavigate();
+    const { t } = useTranslation();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { options: roomTypeOptions } = useRoomTypes();
+
+    const [rooms, setRooms] = useState<PublicRoomItem[]>([]);
+    const [allAvailableRooms, setAllAvailableRooms] = useState<PublicRoomItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [reload, setReload] = useState(0);
+    const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, pages: 0 });
+
+    const roomTypeFromUrl = searchParams.get('roomType') || '';
+    const pageFromUrl = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const keywordFromUrl = searchParams.get('keyword') || '';
+    const cityFromUrl = searchParams.get('city') || '';
+    const sortFromUrl = parseSortParam(searchParams.get('sort'));
+    const minPriceFromUrl = parsePriceQuery(searchParams.get('minPrice'));
+    const maxPriceFromUrl = parsePriceQuery(searchParams.get('maxPrice'));
+    const inspectionFromUrl = (searchParams.get('inspection') || 'all') as 'all' | 'verified' | 'pending';
+
+    const [draftMinPrice, setDraftMinPrice] = useState(minPriceFromUrl != null ? String(minPriceFromUrl) : '');
+    const [draftMaxPrice, setDraftMaxPrice] = useState(maxPriceFromUrl != null ? String(maxPriceFromUrl) : '');
+    const [priceApplyError, setPriceApplyError] = useState('');
+    const [prevMinPrice, setPrevMinPrice] = useState(minPriceFromUrl);
+    const [prevMaxPrice, setPrevMaxPrice] = useState(maxPriceFromUrl);
+
+    if (minPriceFromUrl !== prevMinPrice || maxPriceFromUrl !== prevMaxPrice) {
+        setPrevMinPrice(minPriceFromUrl);
+        setPrevMaxPrice(maxPriceFromUrl);
+        setDraftMinPrice(minPriceFromUrl != null ? String(minPriceFromUrl) : '');
+        setDraftMaxPrice(maxPriceFromUrl != null ? String(maxPriceFromUrl) : '');
+        setPriceApplyError('');
+    }
+
+    const typeTabs = useMemo(() => {
+        const fallback = [
+            { value: 'single', label: t('rooms.typeSingle') },
+            { value: 'shared', label: t('rooms.typeShared') },
+            { value: 'studio', label: t('rooms.typeStudio') },
+            { value: 'apartment', label: t('rooms.typeApartment') },
+        ];
+        const fromApi = roomTypeOptions.length > 0 ? roomTypeOptions : fallback;
+        return [{ value: '', label: t('rooms.typeAll') }, ...fromApi];
+    }, [roomTypeOptions, t]);
+
+    useEffect(() => {
+        setLoading(true);
+        let active = true;
+        setLoadError('');
+
+        const fallbackToMock = () => {
+            let list = [...MOCK_ROOMS_DATA];
+
+            // Prepend locally created rooms from this browser
+            try {
+                const customRooms = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
+                if (Array.isArray(customRooms) && customRooms.length > 0) {
+                    list = [...customRooms, ...list];
+                }
+            } catch {
+                // ignore
+            }
+
+            const allAdapted = list.map(adaptRoom);
+            setAllAvailableRooms(allAdapted);
+
+            if (roomTypeFromUrl) {
+                const rt = roomTypeFromUrl.toLowerCase();
+                list = list.filter((r) => r.roomType.toLowerCase().includes(rt) || rt.includes(r.roomType.toLowerCase()));
+            }
+            if (minPriceFromUrl != null) {
+                list = list.filter((r) => r.price >= minPriceFromUrl);
+            }
+            if (maxPriceFromUrl != null) {
+                list = list.filter((r) => r.price <= maxPriceFromUrl);
+            }
+            if (keywordFromUrl) {
+                const q = keywordFromUrl.toLowerCase();
+                list = list.filter((r) =>
+                    (r.roomName || '').toLowerCase().includes(q) ||
+                    (r.description || '').toLowerCase().includes(q) ||
+                    (r.district || '').toLowerCase().includes(q) ||
+                    (r.address || '').toLowerCase().includes(q)
+                );
+            }
+            if (cityFromUrl) {
+                const c = cityFromUrl.toLowerCase();
+                list = list.filter((r) => (r.city || '').toLowerCase().includes(c));
+            }
+
+            // Filter by inspection status
+            if (inspectionFromUrl === 'verified') {
+                list = list.filter((r) => getRoomLandlordAndInspection(r).inspection.isInspected);
+            } else if (inspectionFromUrl === 'pending') {
+                list = list.filter((r) => !getRoomLandlordAndInspection(r).inspection.isInspected);
+            }
+
+            if (sortFromUrl === 'price_asc') {
+                list = [...list].sort((a, b) => a.price - b.price);
+            } else if (sortFromUrl === 'price_desc') {
+                list = [...list].sort((a, b) => b.price - a.price);
+            }
+
+            const adapted = list.map(adaptRoom);
+            setRooms(adapted);
+            setPagination({ page: 1, limit: PAGE_SIZE, total: adapted.length, pages: Math.ceil(adapted.length / PAGE_SIZE) });
+        };
+
+        getPublicRoomsRequest({
+            page: pageFromUrl,
+            limit: PAGE_SIZE,
+            roomType: roomTypeFromUrl || undefined,
+            minPrice: minPriceFromUrl,
+            maxPrice: maxPriceFromUrl,
+            sort: sortFromUrl,
+            keyword: keywordFromUrl || undefined,
+            city: cityFromUrl || undefined,
+        })
+            .then((res) => {
+                if (!active) return;
+                if (res.data && res.data.length > 0) {
+                    setAllAvailableRooms(res.data);
+                    let items = res.data;
+                    if (inspectionFromUrl === 'verified') {
+                        items = items.filter((r) => getRoomLandlordAndInspection(r).inspection.isInspected);
+                    } else if (inspectionFromUrl === 'pending') {
+                        items = items.filter((r) => !getRoomLandlordAndInspection(r).inspection.isInspected);
+                    }
+                    setRooms(items);
+                    setPagination(res.pagination || { page: 1, limit: PAGE_SIZE, total: items.length, pages: Math.ceil(items.length / PAGE_SIZE) });
+                } else {
+                    fallbackToMock();
+                }
+            })
+            .catch(() => {
+                if (!active) return;
+                fallbackToMock();
+            })
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, [pageFromUrl, roomTypeFromUrl, minPriceFromUrl, maxPriceFromUrl, sortFromUrl, keywordFromUrl, cityFromUrl, inspectionFromUrl, reload]);
+
+    const updateParams = useCallback(
+        (updates: Record<string, string | undefined>) => {
+            setSearchParams((prev) => {
+                const p = new URLSearchParams(prev);
+                for (const [key, val] of Object.entries(updates)) {
+                    if (val) p.set(key, val);
+                    else p.delete(key);
+                }
+                return p;
+            });
+        },
+        [setSearchParams]
+    );
+
+    const handleTypeChange = (type: string) => {
+        updateParams({ roomType: type || undefined, page: undefined });
+    };
+
+    const handleInspectionFilterChange = (status: 'all' | 'verified' | 'pending') => {
+        updateParams({
+            inspection: status === 'all' ? undefined : status,
+            page: undefined,
+        });
+    };
+
+    const handleSortChange = (sort: PublicRoomsSort) => {
+        updateParams({
+            sort: sort === 'newest' ? undefined : sort,
+            page: undefined,
+        });
+    };
+
+    const handlePricePreset = (preset: PricePreset) => {
+        setPriceApplyError('');
+        if (preset.id === 'any') {
+            updateParams({ minPrice: undefined, maxPrice: undefined, page: undefined });
+            return;
+        }
+        updateParams({
+            minPrice: preset.min != null ? String(preset.min) : undefined,
+            maxPrice: preset.max != null ? String(preset.max) : undefined,
+            page: undefined,
+        });
+    };
+
+    const handleApplyCustomPrice = () => {
+        setPriceApplyError('');
+        const rawMin = draftMinPrice.replace(/\D/g, '');
+        const rawMax = draftMaxPrice.replace(/\D/g, '');
+        const min = rawMin ? Number(rawMin) : undefined;
+        const max = rawMax ? Number(rawMax) : undefined;
+        if (min != null && max != null && min > max) {
+            setPriceApplyError('invalid');
+            return;
+        }
+        updateParams({
+            minPrice: min != null ? String(min) : undefined,
+            maxPrice: max != null ? String(max) : undefined,
+            page: undefined,
+        });
+    };
+
+    const handleClearPrice = () => {
+        setPriceApplyError('');
+        updateParams({ minPrice: undefined, maxPrice: undefined, page: undefined });
+    };
+
+    const handleResetAllFilters = () => {
+        setPriceApplyError('');
+        const p = new URLSearchParams();
+        setSearchParams(p);
+    };
+
+    const goToPage = (newPage: number) => {
+        if (newPage < 1 || newPage > pagination.pages) return;
+        updateParams({ page: newPage > 1 ? String(newPage) : undefined });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleRoomClick = (id: string) => navigate(`/room/${id}`);
+
+    const pageNumbers = useMemo(() => {
+        const total = pagination.pages;
+        const current = pagination.page;
+        const range: number[] = [];
+        const start = Math.max(1, current - 2);
+        const end = Math.min(total, current + 2);
+        for (let i = start; i <= end; i++) range.push(i);
+        return range;
+    }, [pagination]);
+
+    // Calculate dynamic counts for inspection filter tabs
+    const pool = allAvailableRooms.length > 0 ? allAvailableRooms : rooms;
+    const verifiedCount = useMemo(() => {
+        return pool.filter(r => getRoomLandlordAndInspection(r).inspection.isInspected).length;
+    }, [pool]);
+
+    const pendingCount = useMemo(() => {
+        return pool.filter(r => !getRoomLandlordAndInspection(r).inspection.isInspected).length;
+    }, [pool]);
+
+    const totalCount = pool.length;
+
+    const activePreset = presetForRange(minPriceFromUrl, maxPriceFromUrl);
+    const hasCustomPrice =
+        (minPriceFromUrl != null || maxPriceFromUrl != null) && activePreset == null;
+    const activeTypeLabel =
+        typeTabs.find((tab) => tab.value === roomTypeFromUrl)?.label || t('rooms.typeAll');
+    const hasActiveFilters =
+        !!keywordFromUrl || !!cityFromUrl || !!roomTypeFromUrl ||
+        sortFromUrl !== 'newest' ||
+        minPriceFromUrl != null ||
+        maxPriceFromUrl != null ||
+        inspectionFromUrl !== 'all';
+
+    return (
+        <div className="rooms-page">
+            <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
+
+            {/* Hero Banner with Modern Emerald Mesh & Trust Indicators */}
+            <div className="rooms-hero">
+                <div className="rooms-hero-badge">
+                    <ShieldCheck size={16} />
+                    <span>NỀN TẢNG THUÊ PHÒNG MINH BẠCH · TIÊU CHUẨN ĐỐI CHIẾU 4 BƯỚC</span>
+                </div>
+                <h1>{t('rooms.title')}</h1>
+                <p>Khám phá hệ sinh thái phòng trọ được đối chiếu thực tế tận nơi, công khai 100% biểu phí và xác minh danh tính chủ trọ uy tín.</p>
+
+                <div className="rooms-hero-trust-row">
+                    <span className="hero-trust-item"><CheckCircle2 size={14} /> 100% Đo đạc & ảnh chụp thực địa</span>
+                    <span className="hero-trust-item"><CheckCircle2 size={14} /> Minh bạch không phụ phí ẩn</span>
+                    <span className="hero-trust-item"><CheckCircle2 size={14} /> Xác thực CCCD / Sổ đỏ chính chủ</span>
+                    <span className="hero-trust-item"><CheckCircle2 size={14} /> Hợp đồng chuẩn pháp lý 3.E</span>
+                </div>
+            </div>
+
+            <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-6">
+                {/* Search Bar */}
+                <form
+                    className="hx-search"
+                    style={{ margin: '16px 0 24px' }}
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        const form = new FormData(e.currentTarget);
+                        updateParams({
+                            keyword: String(form.get('keyword') || ''),
+                            city: String(form.get('city') || ''),
+                            page: undefined
+                        });
+                    }}
+                >
+                    <input
+                        name="keyword"
+                        aria-label="Từ khóa tìm phòng"
+                        placeholder="Tìm theo tên phòng, khu vực, trường đại học gần bạn (ĐH Ngoại Thương, RMIT, HUTECH…)"
+                        defaultValue={keywordFromUrl}
+                        key={'keyword-' + keywordFromUrl}
+                    />
+                    <input
+                        name="city"
+                        aria-label="Thành phố"
+                        placeholder="Thành phố (TP.HCM, Hà Nội…)"
+                        defaultValue={cityFromUrl}
+                        key={'city-' + cityFromUrl}
+                    />
+                    <button className="hx-button" type="submit">
+                        <Search size={16} style={{ display: 'inline', marginRight: 6 }} />
+                        Tìm phòng
+                    </button>
+                </form>
+
+                {/* Inspection Segment Filter Bar (Core HexRoom USP) */}
+                <div className="rooms-inspection-bar-wrap">
+                    <div className="rooms-inspection-pills">
+                        <button
+                            type="button"
+                            className={`rooms-insp-tab ${inspectionFromUrl === 'all' ? 'active' : ''}`}
+                            onClick={() => handleInspectionFilterChange('all')}
+                        >
+                            <span>Tất cả phòng ({totalCount})</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`rooms-insp-tab verified ${inspectionFromUrl === 'verified' ? 'active' : ''}`}
+                            onClick={() => handleInspectionFilterChange('verified')}
+                        >
+                            <ShieldCheck size={16} />
+                            <span>100% Đã kiểm định 4 bước ({verifiedCount})</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`rooms-insp-tab pending ${inspectionFromUrl === 'pending' ? 'active' : ''}`}
+                            onClick={() => handleInspectionFilterChange('pending')}
+                        >
+                            <Clock size={16} />
+                            <span>Chờ đối chiếu thực địa ({pendingCount})</span>
+                        </button>
+                    </div>
+
+                    <div className="rooms-inspection-guarantee-note">
+                        <CheckCircle2 size={15} />
+                        <span>Quy trình chuẩn: <strong>Hiện trạng · Giá & Phụ phí · Ảnh chụp · Quyền cho thuê</strong></span>
+                    </div>
+                </div>
+
+                {/* Categories & Filter Reset */}
+                <div className="rooms-toolbar-top">
+                    <div className="rooms-category-bar">
+                        {typeTabs.map((tab) => (
+                            <button
+                                key={tab.value || 'all'}
+                                type="button"
+                                className={`rooms-cat-btn ${roomTypeFromUrl === tab.value ? 'active' : ''}`}
+                                onClick={() => handleTypeChange(tab.value)}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {hasActiveFilters && (
+                        <button type="button" className="rooms-reset-filters" onClick={handleResetAllFilters}>
+                            {t('rooms.resetAllFilters')}
+                        </button>
+                    )}
+                </div>
+
+                {/* Sort Bar */}
+                <div className="rooms-sort-row" role="group" aria-label={t('rooms.sortNewest')}>
+                    {SORT_OPTIONS.map((opt) => (
+                        <button
+                            key={opt.value}
+                            type="button"
+                            className={`rooms-sort-tab ${sortFromUrl === opt.value ? 'active' : ''}`}
+                            onClick={() => handleSortChange(opt.value)}
+                        >
+                            {t(opt.labelKey)}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Price Filter Collapsible */}
+                <details className="rooms-price-panel">
+                    <summary className="rooms-price-summary">
+                        <span>{t('rooms.filtersToggle')}</span>
+                        <span className="rooms-price-summary-hint">
+                            {activePreset
+                                ? t(activePreset.labelKey)
+                                : hasCustomPrice
+                                    ? t('rooms.customPrice')
+                                    : t('rooms.priceAny')}
+                        </span>
+                    </summary>
+                    <div className="rooms-price-chips">
+                        {PRICE_PRESETS.map((preset) => (
+                            <button
+                                key={preset.id}
+                                type="button"
+                                className={`rooms-price-chip ${preset.id === 'any'
+                                    ? minPriceFromUrl == null && maxPriceFromUrl == null
+                                        ? 'active'
+                                        : ''
+                                    : activePreset?.id === preset.id
+                                        ? 'active'
+                                        : ''
+                                    }`}
+                                onClick={() => handlePricePreset(preset)}
+                            >
+                                {t(preset.labelKey)}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="rooms-custom-price">
+                        <span className="rooms-custom-price-label">{t('rooms.customPrice')}</span>
+                        <div className="rooms-custom-price-inputs">
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                className="rooms-price-input"
+                                placeholder={t('rooms.minPriceShort')}
+                                value={draftMinPrice}
+                                onChange={(e) => setDraftMinPrice(e.target.value)}
+                                aria-label={t('rooms.minPriceShort')}
+                            />
+                            <span className="rooms-price-input-sep">—</span>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                className="rooms-price-input"
+                                placeholder={t('rooms.maxPriceShort')}
+                                value={draftMaxPrice}
+                                onChange={(e) => setDraftMaxPrice(e.target.value)}
+                                aria-label={t('rooms.maxPriceShort')}
+                            />
+                        </div>
+                        <div className="rooms-custom-price-actions">
+                            <button type="button" className="rooms-price-action-primary" onClick={handleApplyCustomPrice}>
+                                {t('rooms.applyPrice')}
+                            </button>
+                            <button type="button" className="rooms-price-action-secondary" onClick={handleClearPrice}>
+                                {t('rooms.clearPrice')}
+                            </button>
+                        </div>
+                        {priceApplyError ? (
+                            <p className="rooms-price-error" role="alert">
+                                {t('rooms.priceInvalidRange')}
+                            </p>
+                        ) : null}
+                    </div>
+                </details>
+
+                {/* Scope link */}
+                <button
+                    type="button"
+                    className="rooms-advanced-link"
+                    onClick={() => navigate('/how-it-works')}
+                >
+                    <SlidersHorizontal size={16} aria-hidden />
+                    Tìm hiểu quy trình khảo sát đối chiếu 4 bước tại chỗ của HexRoom
+                </button>
+
+                {/* Stats */}
+                <div className="rooms-stats">
+                    <span>
+                        {loading
+                            ? 'Đang tải danh sách phòng trọ...'
+                            : roomTypeFromUrl
+                                ? t('rooms.showingFiltered', {
+                                    total: pagination.total,
+                                    type: activeTypeLabel,
+                                })
+                                : t('rooms.showing', { total: pagination.total })}
+                    </span>
+                    <span>{t('rooms.page', { page: pagination.page, total: pagination.pages || 1 })}</span>
+                </div>
+
+                {loadError ? (
+                    <div className="hx-empty" role="alert">
+                        <p>{loadError}</p>
+                        <button className="hx-button" onClick={() => setReload(reload + 1)}>Thử lại</button>
+                    </div>
+                ) : loading ? (
+                    <div className="rooms-card-grid">
+                        {[...Array(6)].map((_, i) => (
+                            <div key={i} className="room-card-skeleton">
+                                <div className="skel-img" />
+                                <div className="skel-body">
+                                    <div className="skel-line w80" />
+                                    <div className="skel-line w60" />
+                                    <div className="skel-line w40" />
+                                    <div className="skel-line w80" />
+                                    <div className="skel-line w30" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : rooms.length === 0 ? (
+                    <div className="rooms-empty">
+                        <div className="rooms-empty-icon">
+                            <Search size={32} />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 mt-3">Không tìm thấy phòng phù hợp</h3>
+                        <p className="text-muted-foreground text-sm mt-1">{t('rooms.empty')}</p>
+                        <button
+                            type="button"
+                            className="mt-4 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition"
+                            onClick={() => handleResetAllFilters()}
+                        >
+                            {t('rooms.viewAll')}
+                        </button>
+                    </div>
+                ) : (
+                    <div className="rooms-card-grid">
+                        {rooms.map((room) => {
+                            const { landlord, inspection } = getRoomLandlordAndInspection(room);
+                            const costHighlights = getRoomCostHighlights(room);
+                            const images = room.images || [];
+                            const mainImg = images[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
+                            const loc = room.rental?.location;
+                            const address = loc ? [loc.district, loc.city].filter(Boolean).join(', ') : ((room as any).district ? `${(room as any).district}, ${(room as any).city || ''}` : '');
+                            const name = room.roomName || room.title || t('rooms.title');
+                            const desc = room.description || '';
+                            const amenities = room.amenities || [];
+                            const maxPeople = room.maxPeople || 2;
+
+                            return (
+                                <div
+                                    key={room.id}
+                                    className={`room-card ${inspection.isInspected ? 'is-inspected' : 'is-pending'}`}
+                                    onClick={() => handleRoomClick(room.id)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleRoomClick(room.id)}
+                                >
+                                    {/* Images Grid with Overlays */}
+                                    <div className="room-card-images">
+                                        <div className="img-main">
+                                            <img
+                                                src={mainImg}
+                                                alt={name}
+                                                crossOrigin="anonymous"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                    e.currentTarget.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
+                                                }}
+                                            />
+                                        </div>
+                                        {images.length > 1 && (
+                                            <div className="img-sub">
+                                                <img
+                                                    src={images[1]}
+                                                    alt=""
+                                                    crossOrigin="anonymous"
+                                                    loading="lazy"
+                                                    onError={(e) => {
+                                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80';
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                        {images.length > 2 && (
+                                            <div className="img-sub">
+                                                <img
+                                                    src={images[2]}
+                                                    alt=""
+                                                    crossOrigin="anonymous"
+                                                    loading="lazy"
+                                                    onError={(e) => {
+                                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=80';
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Floating Top Left: Inspection Badge & Room Type */}
+                                        <div className="card-floating-top-left">
+                                            {inspection.isInspected ? (
+                                                <span className="room-badge-insp verified" title="Đã qua kiểm định thực tế 4 bước tại chỗ">
+                                                    <ShieldCheck size={13} className="badge-icon-verified" />
+                                                    <span>100% ĐÃ ĐỐI CHIẾU 4 BƯỚC</span>
+                                                </span>
+                                            ) : (
+                                                <span className="room-badge-insp pending" title="Tin do chủ trọ tự khai, đang xếp lịch kiểm định thực tế">
+                                                    <Clock size={13} className="badge-icon-pending" />
+                                                    <span>CHỜ ĐỐI CHIẾU THỰC ĐỊA</span>
+                                                </span>
+                                            )}
+                                            {room.roomType && (
+                                                <span className="room-badge-type">
+                                                    {formatRoomTypeBadge(room.roomType)}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Floating Top Right: Heart favorite */}
+                                        <div className="card-floating-top-right" onClick={(e) => e.stopPropagation()}>
+                                            <RoomFavoriteButton
+                                                favoritePayload={mapPublicRoomToFavorite(room, name, address)}
+                                                className="room-card-fav-btn"
+                                            />
+                                        </div>
+
+                                        {/* Floating Bottom Left: Photo Counter */}
+                                        <div className="card-floating-bottom-left">
+                                            {images.length > 0 && (
+                                                <div className="img-count">
+                                                    <Camera size={12} />
+                                                    <span>{images.length} ảnh thực tế</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Floating Bottom Right: Available status */}
+                                        <div className="card-floating-bottom-right">
+                                            <span className="room-badge-available">
+                                                <span className="available-dot" /> Còn phòng trống
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Card Body */}
+                                    <div className="room-card-body">
+                                        <h3 className="room-card-title" title={name}>{name}</h3>
+
+                                        {/* Price · Area · Capacity · Location */}
+                                        <div className="room-card-meta">
+                                            <span className="room-card-price">
+                                                {formatPrice(room.price, t('listing.pricePerMillion'), t('listing.pricePerDong'))}
+                                            </span>
+                                            {room.sizeM2 && <span className="room-card-area">{room.sizeM2} m²</span>}
+                                            <span className="room-card-capacity">
+                                                <Users size={13} /> Tối đa {maxPeople} người
+                                            </span>
+                                            {address && (
+                                                <span className="room-card-location" title={address}>
+                                                    <MapPin size={13} />
+                                                    {address}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Transparent Costs Highlight Strip (HexRoom Value) */}
+                                        <div className="room-card-costs-strip">
+                                            {costHighlights.isAllInclusive ? (
+                                                <span className="cost-tag inclusive">
+                                                    <Sparkles size={12} /> Bao trọn gói Điện, Nước & Wifi
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <span className="cost-tag" title="Giá điện niêm yết">
+                                                        <Zap size={12} className="cost-icon-zap" /> Điện: <strong>{costHighlights.electricity}</strong>
+                                                    </span>
+                                                    <span className="cost-tag" title="Giá nước sinh hoạt">
+                                                        💧 Nước: <strong>{costHighlights.water}</strong>
+                                                    </span>
+                                                    <span className="cost-tag" title="Tiền đặt cọc phòng">
+                                                        🛡️ Cọc: <strong>{costHighlights.deposit}</strong>
+                                                    </span>
+                                                    {costHighlights.parking && (
+                                                        <span className="cost-tag" title="Phí gửi xe">
+                                                            🛵 Xe: <strong>{costHighlights.parking}</strong>
+                                                        </span>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* 4-Step Inspection Micro Checklist Bar (Core HexRoom Value) */}
+                                        {inspection.isInspected ? (
+                                            <div className="room-inspection-status-bar verified">
+                                                <div className="insp-bar-top">
+                                                    <span className="insp-bar-status-text">
+                                                        <ShieldCheck size={14} className="text-emerald-600" />
+                                                        ĐÃ ĐỐI CHIẾU 4 BƯỚC BỞI HEXROOM INSPECTOR
+                                                    </span>
+                                                    {inspection.inspectedDate && (
+                                                        <span className="insp-bar-date">Ngày {inspection.inspectedDate}</span>
+                                                    )}
+                                                </div>
+                                                <div className="insp-checklist-mini-grid">
+                                                    <span className="insp-check-item">
+                                                        <Check size={11} /> 1. Hiện trạng phòng
+                                                    </span>
+                                                    <span className="insp-check-item">
+                                                        <Check size={11} /> 2. Giá & Phụ phí
+                                                    </span>
+                                                    <span className="insp-check-item">
+                                                        <Check size={11} /> 3. 100% Ảnh thực tế
+                                                    </span>
+                                                    <span className="insp-check-item">
+                                                        <Check size={11} /> 4. Quyền cho thuê
+                                                    </span>
+                                                </div>
+                                                {inspection.summary && (
+                                                    <p className="insp-summary-text">
+                                                        “{inspection.summary}”
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="room-inspection-status-bar pending">
+                                                <div className="insp-bar-top">
+                                                    <span className="insp-bar-status-text-pending">
+                                                        <AlertTriangle size={14} className="text-amber-600" />
+                                                        CHƯA QUA ĐỐI CHIẾU THỰC ĐỊA (CHỦ NHÀ TỰ KHAI)
+                                                    </span>
+                                                </div>
+                                                <p className="insp-pending-note">
+                                                    Thông tin và hình ảnh do chủ phòng tự đăng tải. HexRoom đang xếp lịch cử Inspector đến đo đạc kiểm tra tại chỗ.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Amenities */}
+                                        {amenities.length > 0 && (
+                                            <div className="room-card-amenities">
+                                                {amenities.slice(0, 5).map((a) => (
+                                                    <span key={a.id} className="room-card-amenity">
+                                                        {a.name}
+                                                    </span>
+                                                ))}
+                                                {amenities.length > 5 && (
+                                                    <span className="room-card-amenity more">+{amenities.length - 5} tiện ích</span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Description */}
+                                        {desc && <p className="room-card-desc">{desc}</p>}
+
+                                        {/* Landlord / Host Profile Section (Prominent, High Contrast & Trustworthy) */}
+                                        <div className="room-card-landlord-container">
+                                            <div className="landlord-main-info">
+                                                <div className="landlord-avatar-wrapper">
+                                                    <img
+                                                        src={landlord.avatarUrl}
+                                                        alt={landlord.fullName}
+                                                        className="landlord-avatar-image"
+                                                        onError={(e) => {
+                                                            e.currentTarget.src = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&auto=format&fit=crop&q=80';
+                                                        }}
+                                                    />
+                                                    <span className={`landlord-badge-dot ${landlord.isIdentityVerified ? 'verified' : ''}`} />
+                                                </div>
+                                                <div className="landlord-text-col">
+                                                    <div className="landlord-heading-row">
+                                                        <span className="landlord-full-name">{landlord.fullName}</span>
+                                                        <span className={`landlord-role-badge ${landlord.role === 'QUẢN LÝ TÒA NHÀ' ? 'manager' : landlord.role === 'ĐẠI DIỆN VẬN HÀNH' ? 'coliving' : 'owner'}`}>
+                                                            {landlord.roleBadge}
+                                                        </span>
+                                                        <span className="landlord-rating-pill">
+                                                            ⭐ {landlord.rating} <small>({landlord.reviewCount})</small>
+                                                        </span>
+                                                    </div>
+                                                    <div className="landlord-sub-row">
+                                                        {landlord.isIdentityVerified ? (
+                                                            <span className="landlord-id-status verified">
+                                                                <ShieldCheck size={12} /> {landlord.identityBadge}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="landlord-id-status pending">
+                                                                <Clock size={12} /> {landlord.identityBadge}
+                                                            </span>
+                                                        )}
+                                                        <span className="sub-sep">·</span>
+                                                        <span className="landlord-response-time">{landlord.responseTime}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="landlord-action-wrapper" onClick={(e) => e.stopPropagation()}>
+                                                <a
+                                                    href={`tel:${landlord.phone}`}
+                                                    className="btn-call-landlord"
+                                                    title={`Gọi cho ${landlord.fullName}`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Phone size={13} />
+                                                    <span>{landlord.phone}</span>
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    className="btn-view-transparency"
+                                                    onClick={() => handleRoomClick(room.id)}
+                                                    title="Xem hồ sơ minh bạch & Báo cáo kiểm định"
+                                                >
+                                                    Xem minh bạch
+                                                    <ChevronRight size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Pagination */}
+                {pagination.pages > 1 && (
+                    <div className="rooms-pagination">
+                        <button
+                            type="button"
+                            className="rooms-page-btn"
+                            disabled={pagination.page <= 1}
+                            onClick={() => goToPage(pagination.page - 1)}
+                            aria-label="Trang trước"
+                        >
+                            ‹
+                        </button>
+                        {pageNumbers.map((num) => (
+                            <button
+                                key={num}
+                                type="button"
+                                className={`rooms-page-btn ${num === pagination.page ? 'active' : ''}`}
+                                onClick={() => goToPage(num)}
+                            >
+                                {num}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            className="rooms-page-btn"
+                            disabled={pagination.page >= pagination.pages}
+                            onClick={() => goToPage(pagination.page + 1)}
+                            aria-label="Trang tiếp"
+                        >
+                            ›
+                        </button>
+                    </div>
+                )}
+            </main>
+
+            <Footer />
+        </div>
+    );
+}

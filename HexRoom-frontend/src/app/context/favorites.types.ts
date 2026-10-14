@@ -1,0 +1,1 @@
+export type { FavoriteRoom, FavoritesContextType } from './favorites-context';

@@ -1,0 +1,1 @@
+export { ViewLandlordPage } from './ViewLandlordPage';

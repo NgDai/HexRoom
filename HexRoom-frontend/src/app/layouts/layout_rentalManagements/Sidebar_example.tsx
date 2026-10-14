@@ -1,0 +1,134 @@
+
+// import React from 'react';
+// import { styled, useTheme } from '@mui/material/styles';
+// import {
+//   Drawer,
+//   List,
+//   Divider,
+//   IconButton,
+//   ListItem,
+//   ListItemButton,
+//   ListItemIcon,
+//   ListItemText,
+//   Toolbar,
+// } from '@mui/material';
+// import {
+//   Home as HomeIcon,
+//   Article as ArticleIcon,
+//   QuestionAnswer as QuestionAnswerIcon,
+//   ChevronLeft as ChevronLeftIcon,
+//   ChevronRight as ChevronRightIcon,
+// } from '@mui/icons-material';
+// import { NavLink } from 'react-router-dom';
+
+// type SidebarProps = {
+//   open: boolean;
+//   onToggle: () => void;
+//   sidebarWidth?: number;
+//   collapsedWidth?: number;
+// };
+
+// const drawerWidth = 240;
+// const collapsed = 72;
+
+// const DrawerHeader = styled('div')(({ theme }) => ({
+//   display: 'flex',
+//   alignItems: 'center',
+//   padding: theme.spacing(0, 1),
+//   ...theme.mixins.toolbar,
+//   justifyContent: 'flex-end',
+// }));
+
+// const MuiSidebar: React.FC<SidebarProps> = ({
+//   open,
+//   onToggle,
+//   sidebarWidth = drawerWidth,
+//   collapsedWidth = collapsed,
+// }) => {
+//   const theme = useTheme();
+
+//   const items = [
+//     { label: 'Bảng điều khiển', path: '/teacher', icon: HomeIcon },
+//     // { label: 'Theo dõi học viên', path: 'manage-student', icon: ShoppingCartIcon },
+//     { label: 'Khóa học', path: 'manage-courses', icon: ArticleIcon },
+//     // { label: 'Bình luận', path: 'manage-reviews', icon: ReviewsIcon },
+//     { label: 'Hỏi đáp bài học', path: 'manage-comments', icon: QuestionAnswerIcon },
+//      { label: 'Quản lý tiến độ học tập', path: 'manage-tracksprocess', icon: ArticleIcon },
+    
+//     // { label: 'Pending edits', path: 'pending-edits', icon: ArticleIcon },
+
+//   ] as const;
+
+//   return (
+//     <Drawer
+//       variant="permanent"
+//       sx={{
+//         width: open ? sidebarWidth : collapsedWidth,
+//         flexShrink: 0,
+//         '& .MuiDrawer-paper': {
+//           width: open ? sidebarWidth : collapsedWidth,
+//           boxSizing: 'border-box',
+//           transition: theme.transitions.create('width', {
+//             easing: theme.transitions.easing.sharp,
+//             duration: theme.transitions.duration.enteringScreen,
+//           }),
+//           overflowX: 'hidden',
+//           borderRight: `1px solid ${theme.palette.divider}`,
+//         },
+//       }}
+//       open={open}
+//     >
+//       {/* Keep space for AppBar */}
+//       <Toolbar />
+//       <Divider />
+//       <List sx={{ px: 1 }}>
+//         {items.map((item) => {
+//           const Icon = item.icon;
+//           return (
+//             <ListItem key={item.path} disablePadding sx={{ display: 'block' }}>
+//               <ListItemButton
+//                 component={NavLink}
+//                 to={item.path}
+//                 // @ts-expect-error - NavLink className can be a function, but MUI types don't support it
+//                 className={({ isActive }: { isActive: boolean }) => (isActive ? 'active' : undefined)}
+//                 sx={{
+//                   minHeight: 48,
+//                   justifyContent: open ? 'initial' : 'center',
+//                   px: 2,
+//                   borderRadius: 1.5,
+//                   '&.active': {
+//                     bgcolor: 'action.selected',
+//                   },
+//                 }}
+//               >
+//                 <ListItemIcon
+//                   sx={{
+//                     minWidth: 0,
+//                     mr: open ? 2 : 'auto',
+//                     justifyContent: 'center',
+//                     color: 'text.secondary',
+//                   }}
+//                 >
+//                   <Icon />
+//                 </ListItemIcon>
+//                 <ListItemText
+//                   primary={item.label}
+//                   sx={{ opacity: open ? 1 : 0 }}
+//                 />
+//               </ListItemButton>
+//             </ListItem>
+//           );
+//         })}
+//       </List>
+
+//       <Divider sx={{ mt: 'auto' }} />
+//       <DrawerHeader>
+//         <IconButton onClick={onToggle}>
+//           {open ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+//         </IconButton>
+//       </DrawerHeader>
+//     </Drawer>
+//   );
+// };
+
+// export default MuiSidebar;

@@ -1,0 +1,178 @@
+/* HexRoom Modern Green Design System: Crisp, elegant, eco-friendly, trustworthy */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  /* Fonts */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Nunito', ui-sans-serif, system-ui, sans-serif;
+
+  /* Colors - HexRoom Emerald Green Palette */
+  --color-background: #F8FAF9;
+  --color-foreground: #0F172A;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #0F172A;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #0F172A;
+
+  /* Primary Emerald Brand Colors */
+  --color-primary: #10B981;
+  --color-primary-hover: #059669;
+  --color-primary-active: #047857;
+  --color-primary-foreground: #FFFFFF;
+  --color-primary-light: #ECFDF5;
+
+  /* Secondary & Muted */
+  --color-secondary: #ECFDF5;
+  --color-secondary-foreground: #065F46;
+  --color-muted: #F1F5F9;
+  --color-muted-foreground: #64748B;
+
+  /* Accents & Status */
+  --color-accent: #F59E0B;
+  --color-accent-foreground: #FFFFFF;
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-input: #E2E8F0;
+  --color-ring: #10B981;
+
+  /* Rounded corners - modern rounded aesthetics */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    margin: 0;
+    overflow-x: hidden;
+    line-height: 1.6;
+    background-color: #F8FAF9;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    @apply text-foreground font-bold;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+
+  h1 {
+    @apply text-3xl sm:text-4xl lg:text-5xl font-extrabold;
+  }
+
+  h2 {
+    @apply text-2xl sm:text-3xl font-bold;
+  }
+
+  h3 {
+    @apply text-lg sm:text-xl font-semibold;
+  }
+
+  h4 {
+    @apply text-base font-semibold;
+  }
+
+  /* Focus ring with emerald green */
+  *:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Smoother link transitions */
+  a {
+    transition: color 0.15s ease, opacity 0.15s ease;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* Modern Card Hover Effects */
+  .hover-lift {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 32px -8px rgba(16, 185, 129, 0.15), 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-hover-green {
+    transition: all 0.25s ease;
+  }
+  .card-hover-green:hover {
+    transform: translateY(-3px);
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 14px 28px -6px rgba(16, 185, 129, 0.12), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Emerald Gradients */
+  .green-gradient {
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  }
+
+  .green-gradient-hover:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  }
+
+  .green-gradient-soft {
+    background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  }
+
+  .green-gradient-hero {
+    background: linear-gradient(135deg, #047857 0%, #059669 40%, #10B981 100%);
+  }
+
+  /* Glassmorphism effects */
+  .glass {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+  }
+
+  .emerald-glow {
+    box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3), 0 8px 10px -6px rgba(16, 185, 129, 0.2);
+  }
+
+  .active-scale:active {
+    transform: scale(0.98);
+  }
+}

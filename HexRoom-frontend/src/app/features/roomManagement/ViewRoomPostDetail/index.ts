@@ -1,0 +1,1 @@
+export { ViewRoomPostDetailPage } from './ViewRoomPostDetailPage';

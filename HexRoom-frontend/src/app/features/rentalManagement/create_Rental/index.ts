@@ -1,0 +1,1 @@
+export { CreateRentalPage } from './CreateRentalPage';

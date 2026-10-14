@@ -1,0 +1,1 @@
+export { CreateRoomPostPage } from './CreateRoomPostPage';
