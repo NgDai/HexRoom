@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Header, Footer } from './components';
 import { request, money, type ApiRoom, type Page } from '@/lib/hexroom-api';
+import { POPULAR_LOCATIONS, FILTER_ROOM_TYPES, FILTER_PRICE_PRESETS, FILTER_SIZE_PRESETS, FILTER_AMENITIES } from '@/lib/constants/room-filters';
 import { MOCK_ROOMS_DATA, MOCK_SEEKERS_DATA, MOCK_POPULAR_AREAS } from '@/lib/mock-data';
 
 const quickPrinciples = [
@@ -30,9 +31,13 @@ const quickPrinciples = [
 export function HomePage() {
     const navigate = useNavigate();
     const [keyword, setKeyword] = useState('');
-    const [selectedCity, setSelectedCity] = useState('');
+    const [selectedCity, setSelectedCity] = useState('Hồ Chí Minh');
     const [selectedDistrict, setSelectedDistrict] = useState('');
     const [selectedRoomType, setSelectedRoomType] = useState('');
+    const [selectedPrice, setSelectedPrice] = useState('');
+    const [selectedSize, setSelectedSize] = useState('');
+    const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+    const [onlyVerified, setOnlyVerified] = useState(false);
     const [rooms, setRooms] = useState<ApiRoom[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeSort, setActiveSort] = useState<'all' | 'cheap' | 'studio'>('all');
@@ -62,6 +67,15 @@ export function HomePage() {
         return () => { active = false; };
     }, []);
 
+    const currentCityObj = POPULAR_LOCATIONS.find(c => c.name.toLowerCase() === selectedCity.toLowerCase());
+    const availableDistricts = currentCityObj?.districts || [];
+
+    const toggleAmenity = (name: string) => {
+        setSelectedAmenities(prev =>
+            prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]
+        );
+    };
+
     const handleSearchSubmit = (event: FormEvent) => {
         event.preventDefault();
         const params = new URLSearchParams();
@@ -69,6 +83,22 @@ export function HomePage() {
         if (selectedCity) params.set('city', selectedCity);
         if (selectedDistrict) params.set('district', selectedDistrict);
         if (selectedRoomType) params.set('roomType', selectedRoomType);
+        if (selectedPrice && selectedPrice !== 'any') {
+            const p = FILTER_PRICE_PRESETS.find(x => x.id === selectedPrice);
+            if (p?.min != null) params.set('minPrice', String(p.min));
+            if (p?.max != null) params.set('maxPrice', String(p.max));
+        }
+        if (selectedSize && selectedSize !== 'any') {
+            const s = FILTER_SIZE_PRESETS.find(x => x.id === selectedSize);
+            if (s?.min != null) params.set('minSize', String(s.min));
+            if (s?.max != null) params.set('maxSize', String(s.max));
+        }
+        if (selectedAmenities.length > 0) {
+            params.set('amenities', selectedAmenities.join(','));
+        }
+        if (onlyVerified) {
+            params.set('inspection', 'verified');
+        }
         navigate(`/rooms?${params.toString()}`);
     };
 
@@ -110,19 +140,132 @@ export function HomePage() {
                             Kết nối bạn cùng phòng văn minh, cùng tần số và minh bạch từng khoản chi phí.
                         </p>
 
-                        {/* Search Box */}
-                        <form className="hx-search" onSubmit={handleSearchSubmit}>
-                            <MapPin size={22} />
-                            <label className="hx-sr-only" htmlFor="home-search">Từ khóa tìm phòng</label>
-                            <input
-                                id="home-search"
-                                value={keyword}
-                                onChange={e => setKeyword(e.target.value)}
-                                placeholder="Nhập tên đường, khu vực hoặc trường đại học..."
-                            />
-                            <button className="hx-button" type="submit">
-                                <Search size={18} /> Tìm kiếm ngay
-                            </button>
+                        {/* Enhanced Multi-Option Search & Filter Box */}
+                        <form className="hx-hero-filter-container" onSubmit={handleSearchSubmit}>
+                            {/* Row 1: Keyword search */}
+                            <div className="hx-hero-filter-primary">
+                                <Search size={20} color="#10B981" />
+                                <label className="hx-sr-only" htmlFor="home-search">Từ khóa tìm phòng</label>
+                                <input
+                                    id="home-search"
+                                    value={keyword}
+                                    onChange={e => setKeyword(e.target.value)}
+                                    placeholder="Tìm theo tên phòng, đường, trường đại học (ĐH Bách Khoa, RMIT, Cầu Giấy, Bình Thạnh...)"
+                                />
+                                <button className="hx-hero-submit-btn" type="submit">
+                                    <Search size={16} /> Tìm phòng ngay
+                                </button>
+                            </div>
+
+                            {/* Row 2: Select Dropdowns (City, District, Room Type, Price, Size) */}
+                            <div className="hx-hero-filter-grid">
+                                <div className="hx-hero-select-wrap">
+                                    <label htmlFor="home-city">Thành phố</label>
+                                    <select
+                                        id="home-city"
+                                        className="hx-hero-select"
+                                        value={selectedCity}
+                                        onChange={e => {
+                                            setSelectedCity(e.target.value);
+                                            setSelectedDistrict('');
+                                        }}
+                                    >
+                                        <option value="">Tất cả thành phố</option>
+                                        {POPULAR_LOCATIONS.map(c => (
+                                            <option key={c.name} value={c.name}>{c.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="hx-hero-select-wrap">
+                                    <label htmlFor="home-district">Quận / Huyện</label>
+                                    <select
+                                        id="home-district"
+                                        className="hx-hero-select"
+                                        value={selectedDistrict}
+                                        onChange={e => setSelectedDistrict(e.target.value)}
+                                    >
+                                        <option value="">Tất cả quận / huyện</option>
+                                        {availableDistricts.map(d => (
+                                            <option key={d} value={d}>{d}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="hx-hero-select-wrap">
+                                    <label htmlFor="home-room-type">Loại hình phòng</label>
+                                    <select
+                                        id="home-room-type"
+                                        className="hx-hero-select"
+                                        value={selectedRoomType}
+                                        onChange={e => setSelectedRoomType(e.target.value)}
+                                    >
+                                        {FILTER_ROOM_TYPES.map(rt => (
+                                            <option key={rt.value} value={rt.value}>{rt.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="hx-hero-select-wrap">
+                                    <label htmlFor="home-price">Mức giá thuê</label>
+                                    <select
+                                        id="home-price"
+                                        className="hx-hero-select"
+                                        value={selectedPrice}
+                                        onChange={e => setSelectedPrice(e.target.value)}
+                                    >
+                                        {FILTER_PRICE_PRESETS.map(p => (
+                                            <option key={p.id} value={p.id}>{p.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="hx-hero-select-wrap">
+                                    <label htmlFor="home-size">Diện tích</label>
+                                    <select
+                                        id="home-size"
+                                        className="hx-hero-select"
+                                        value={selectedSize}
+                                        onChange={e => setSelectedSize(e.target.value)}
+                                    >
+                                        {FILTER_SIZE_PRESETS.map(s => (
+                                            <option key={s.id} value={s.id}>{s.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Row 3: Verified Checkbox & Amenities pills */}
+                            <div className="hx-hero-filter-actions">
+                                <label className="hx-hero-filter-verified-toggle">
+                                    <input
+                                        type="checkbox"
+                                        checked={onlyVerified}
+                                        onChange={e => setOnlyVerified(e.target.checked)}
+                                    />
+                                    <ShieldCheck size={16} color="#059669" />
+                                    <span>Chỉ hiện phòng đã kiểm định thực địa 100%</span>
+                                </label>
+
+                                <div className="hx-hero-amenity-tags">
+                                    <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600, alignSelf: 'center' }}>Tiện ích:</span>
+                                    {FILTER_AMENITIES.slice(0, 6).map(a => {
+                                        const active = selectedAmenities.includes(a.name);
+                                        return (
+                                            <button
+                                                key={a.id}
+                                                type="button"
+                                                className={`hx-hero-amenity-pill ${active ? 'active' : ''}`}
+                                                onClick={() => toggleAmenity(a.name)}
+                                            >
+                                                <span>{a.icon}</span>
+                                                <span>{a.name}</span>
+                                                {active && <span>✓</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </form>
 
                         {/* Fast Tags */}
@@ -413,20 +556,88 @@ export function HomePage() {
                             <div className="hx-sidebar-widget" style={{ marginBottom: 20 }}>
                                 <h3><Banknote size={18} color="#10B981" /> Mức giá thuê tháng</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <Link to="/rooms?maxPrice=2500000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
-                                        <span>Dưới 2.5 triệu / tháng</span>
+                                    <Link to="/rooms?maxPrice=2000000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Dưới 2.0 triệu / tháng</span>
                                         <span>→</span>
                                     </Link>
-                                    <Link to="/rooms?minPrice=2500000&maxPrice=4500000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
-                                        <span>2.5 - 4.5 triệu / tháng</span>
+                                    <Link to="/rooms?minPrice=2000000&maxPrice=4000000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>2.0 - 4.0 triệu / tháng</span>
                                         <span>→</span>
                                     </Link>
-                                    <Link to="/rooms?minPrice=4500000&maxPrice=8000000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
-                                        <span>4.5 - 8.0 triệu / tháng</span>
+                                    <Link to="/rooms?minPrice=4000000&maxPrice=7000000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>4.0 - 7.0 triệu / tháng</span>
                                         <span>→</span>
                                     </Link>
-                                    <Link to="/rooms?minPrice=8000000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
-                                        <span>Trên 8.0 triệu / tháng</span>
+                                    <Link to="/rooms?minPrice=7000000&maxPrice=12000000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>7.0 - 12.0 triệu / tháng</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?minPrice=12000000" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Trên 12.0 triệu / tháng</span>
+                                        <span>→</span>
+                                    </Link>
+                                </div>
+                            </div>
+
+                            <div className="hx-sidebar-widget" style={{ marginBottom: 20 }}>
+                                <h3><House size={18} color="#10B981" /> Loại hình phòng trọ</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <Link to="/rooms?roomType=STUDIO" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Căn hộ Studio</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?roomType=SINGLE" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Phòng đơn khép kín</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?roomType=SHARED" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Ở ghép / Coliving</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?roomType=APARTMENT" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Căn hộ mini / Chung cư</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?roomType=WHOLE_HOUSE" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Nhà nguyên căn</span>
+                                        <span>→</span>
+                                    </Link>
+                                </div>
+                            </div>
+
+                            <div className="hx-sidebar-widget" style={{ marginBottom: 20 }}>
+                                <h3><Sparkles size={18} color="#10B981" /> Tiện nghi phổ biến</h3>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {FILTER_AMENITIES.slice(0, 8).map(am => (
+                                        <Link
+                                            key={am.id}
+                                            to={`/rooms?amenities=${encodeURIComponent(am.name)}`}
+                                            className="hx-filter-pill"
+                                            style={{ padding: '4px 10px', fontSize: 12 }}
+                                        >
+                                            <span>{am.icon} {am.name}</span>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="hx-sidebar-widget" style={{ marginBottom: 20 }}>
+                                <h3><MapPin size={18} color="#10B981" /> Diện tích không gian</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <Link to="/rooms?maxSize=20" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Dưới 20m²</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?minSize=20&maxSize=30" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>20 - 30m²</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?minSize=30&maxSize=45" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>30 - 45m²</span>
+                                        <span>→</span>
+                                    </Link>
+                                    <Link to="/rooms?minSize=45" className="hx-filter-pill" style={{ justifyContent: 'space-between' }}>
+                                        <span>Trên 45m²</span>
                                         <span>→</span>
                                     </Link>
                                 </div>

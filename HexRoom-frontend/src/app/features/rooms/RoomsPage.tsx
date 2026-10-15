@@ -4,12 +4,23 @@ import { useTranslation } from 'react-i18next';
 import {
     MapPin, Camera, Search, SlidersHorizontal, ShieldCheck,
     CheckCircle2, Clock, AlertTriangle, Check, Users, Sparkles,
-    ChevronRight, Zap, Phone
+    ChevronRight, Zap, Phone, X, ChevronDown, ChevronUp, RotateCcw, Filter, Building
 } from 'lucide-react';
 import { Header, Footer } from '@/app/features/home/components';
 import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
 import { getPublicRoomsRequest, type PublicRoomItem, type PublicRoomsSort } from '@/lib/api';
 import { useRoomTypes } from '@/app/hooks/useRoomTypes';
+import {
+    POPULAR_LOCATIONS,
+    FILTER_ROOM_TYPES,
+    FILTER_PRICE_PRESETS,
+    FILTER_SIZE_PRESETS,
+    FILTER_AMENITIES,
+    FILTER_SORT_OPTIONS,
+    type PricePresetItem,
+    type SizePresetItem,
+    type AmenityFilterItem
+} from '@/lib/constants/room-filters';
 import { mapPublicRoomToFavorite } from '@/lib/utils/mapPublicRoomToFavorite';
 import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
 import { adaptRoom } from '@/lib/room-adapter';
@@ -95,10 +106,28 @@ export function RoomsPage() {
     const pageFromUrl = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const keywordFromUrl = searchParams.get('keyword') || '';
     const cityFromUrl = searchParams.get('city') || '';
+    const districtFromUrl = searchParams.get('district') || '';
     const sortFromUrl = parseSortParam(searchParams.get('sort'));
     const minPriceFromUrl = parsePriceQuery(searchParams.get('minPrice'));
     const maxPriceFromUrl = parsePriceQuery(searchParams.get('maxPrice'));
+    const minSizeFromUrl = parsePriceQuery(searchParams.get('minSize'));
+    const maxSizeFromUrl = parsePriceQuery(searchParams.get('maxSize'));
+    const amenitiesFromUrl = useMemo(() => {
+        const raw = searchParams.get('amenities');
+        return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    }, [searchParams]);
     const inspectionFromUrl = (searchParams.get('inspection') || 'all') as 'all' | 'verified' | 'pending';
+
+    const [isFilterExpanded, setIsFilterExpanded] = useState(true);
+    const [draftMinSize, setDraftMinSize] = useState(minSizeFromUrl != null ? String(minSizeFromUrl) : '');
+    const [draftMaxSize, setDraftMaxSize] = useState(maxSizeFromUrl != null ? String(maxSizeFromUrl) : '');
+    const [searchCity, setSearchCity] = useState(cityFromUrl);
+    const [searchDistrict, setSearchDistrict] = useState(districtFromUrl);
+
+    useEffect(() => {
+        setSearchCity(cityFromUrl);
+        setSearchDistrict(districtFromUrl);
+    }, [cityFromUrl, districtFromUrl]);
 
     const [draftMinPrice, setDraftMinPrice] = useState(minPriceFromUrl != null ? String(minPriceFromUrl) : '');
     const [draftMaxPrice, setDraftMaxPrice] = useState(maxPriceFromUrl != null ? String(maxPriceFromUrl) : '');
@@ -156,6 +185,12 @@ export function RoomsPage() {
             if (maxPriceFromUrl != null) {
                 list = list.filter((r) => r.price <= maxPriceFromUrl);
             }
+            if (minSizeFromUrl != null) {
+                list = list.filter((r) => (r.sizeM2 ?? 0) >= minSizeFromUrl);
+            }
+            if (maxSizeFromUrl != null) {
+                list = list.filter((r) => (r.sizeM2 ?? 0) <= maxSizeFromUrl);
+            }
             if (keywordFromUrl) {
                 const q = keywordFromUrl.toLowerCase();
                 list = list.filter((r) =>
@@ -169,6 +204,18 @@ export function RoomsPage() {
                 const c = cityFromUrl.toLowerCase();
                 list = list.filter((r) => (r.city || '').toLowerCase().includes(c));
             }
+            if (districtFromUrl) {
+                const d = districtFromUrl.toLowerCase();
+                list = list.filter((r) => (r.district || '').toLowerCase().includes(d));
+            }
+            if (amenitiesFromUrl.length > 0) {
+                list = list.filter((r) => {
+                    const roomAmenities = (r.amenities || []).map(a => typeof a === 'string' ? a : (a as any).name);
+                    return amenitiesFromUrl.every(req =>
+                        roomAmenities.some(ra => ra.toLowerCase().includes(req.toLowerCase()))
+                    );
+                });
+            }
 
             // Filter by inspection status
             if (inspectionFromUrl === 'verified') {
@@ -181,6 +228,8 @@ export function RoomsPage() {
                 list = [...list].sort((a, b) => a.price - b.price);
             } else if (sortFromUrl === 'price_desc') {
                 list = [...list].sort((a, b) => b.price - a.price);
+            } else if (sortFromUrl === 'size_desc') {
+                list = [...list].sort((a, b) => (b.sizeM2 ?? 0) - (a.sizeM2 ?? 0));
             }
 
             const adapted = list.map(adaptRoom);
@@ -194,6 +243,9 @@ export function RoomsPage() {
             roomType: roomTypeFromUrl || undefined,
             minPrice: minPriceFromUrl,
             maxPrice: maxPriceFromUrl,
+            minSize: minSizeFromUrl,
+            maxSize: maxSizeFromUrl,
+            district: districtFromUrl || undefined,
             sort: sortFromUrl,
             keyword: keywordFromUrl || undefined,
             city: cityFromUrl || undefined,
@@ -208,6 +260,16 @@ export function RoomsPage() {
                     } else if (inspectionFromUrl === 'pending') {
                         items = items.filter((r) => !getRoomLandlordAndInspection(r).inspection.isInspected);
                     }
+                    if (districtFromUrl) {
+                        const d = districtFromUrl.toLowerCase();
+                        items = items.filter((r) => (r.district || '').toLowerCase().includes(d));
+                    }
+                    if (amenitiesFromUrl.length > 0) {
+                        items = items.filter((r) => {
+                            const rAms = (r.amenities || []).map(a => typeof a === 'string' ? a : a.name);
+                            return amenitiesFromUrl.every(req => rAms.some(ra => ra.toLowerCase().includes(req.toLowerCase())));
+                        });
+                    }
                     setRooms(items);
                     setPagination(res.pagination || { page: 1, limit: PAGE_SIZE, total: items.length, pages: Math.ceil(items.length / PAGE_SIZE) });
                 } else {
@@ -220,7 +282,7 @@ export function RoomsPage() {
             })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
-    }, [pageFromUrl, roomTypeFromUrl, minPriceFromUrl, maxPriceFromUrl, sortFromUrl, keywordFromUrl, cityFromUrl, inspectionFromUrl, reload]);
+    }, [pageFromUrl, roomTypeFromUrl, minPriceFromUrl, maxPriceFromUrl, minSizeFromUrl, maxSizeFromUrl, sortFromUrl, keywordFromUrl, cityFromUrl, districtFromUrl, amenitiesFromUrl, inspectionFromUrl, reload]);
 
     const updateParams = useCallback(
         (updates: Record<string, string | undefined>) => {
@@ -289,6 +351,58 @@ export function RoomsPage() {
         updateParams({ minPrice: undefined, maxPrice: undefined, page: undefined });
     };
 
+    const handleSizePreset = (preset: SizePresetItem) => {
+        if (preset.id === 'any') {
+            updateParams({ minSize: undefined, maxSize: undefined, page: undefined });
+            return;
+        }
+        updateParams({
+            minSize: preset.min != null ? String(preset.min) : undefined,
+            maxSize: preset.max != null ? String(preset.max) : undefined,
+            page: undefined,
+        });
+    };
+
+    const handleApplyCustomSize = () => {
+        const rawMin = draftMinSize.replace(/\D/g, '');
+        const rawMax = draftMaxSize.replace(/\D/g, '');
+        const min = rawMin ? Number(rawMin) : undefined;
+        const max = rawMax ? Number(rawMax) : undefined;
+        updateParams({
+            minSize: min != null ? String(min) : undefined,
+            maxSize: max != null ? String(max) : undefined,
+            page: undefined,
+        });
+    };
+
+    const handleAmenityToggle = (name: string) => {
+        const next = amenitiesFromUrl.includes(name)
+            ? amenitiesFromUrl.filter(a => a !== name)
+            : [...amenitiesFromUrl, name];
+        updateParams({
+            amenities: next.length > 0 ? next.join(',') : undefined,
+            page: undefined,
+        });
+    };
+
+    const handleCitySelectChange = (city: string) => {
+        setSearchCity(city);
+        setSearchDistrict('');
+        updateParams({
+            city: city || undefined,
+            district: undefined,
+            page: undefined,
+        });
+    };
+
+    const handleDistrictSelectChange = (district: string) => {
+        setSearchDistrict(district);
+        updateParams({
+            district: district || undefined,
+            page: undefined,
+        });
+    };
+
     const handleResetAllFilters = () => {
         setPriceApplyError('');
         const p = new URLSearchParams();
@@ -330,12 +444,26 @@ export function RoomsPage() {
         (minPriceFromUrl != null || maxPriceFromUrl != null) && activePreset == null;
     const activeTypeLabel =
         typeTabs.find((tab) => tab.value === roomTypeFromUrl)?.label || t('rooms.typeAll');
-    const hasActiveFilters =
-        !!keywordFromUrl || !!cityFromUrl || !!roomTypeFromUrl ||
-        sortFromUrl !== 'newest' ||
-        minPriceFromUrl != null ||
-        maxPriceFromUrl != null ||
-        inspectionFromUrl !== 'all';
+    const activeCityObj = POPULAR_LOCATIONS.find(c => c.name.toLowerCase() === (searchCity || cityFromUrl).toLowerCase());
+    const currentDistricts = activeCityObj?.districts || [];
+
+    const activeSizePreset = FILTER_SIZE_PRESETS.find(p => {
+        if (p.id === 'any') return minSizeFromUrl == null && maxSizeFromUrl == null;
+        return p.min === minSizeFromUrl && p.max === maxSizeFromUrl;
+    });
+
+    let activeFilterCount = 0;
+    if (keywordFromUrl) activeFilterCount++;
+    if (cityFromUrl) activeFilterCount++;
+    if (districtFromUrl) activeFilterCount++;
+    if (roomTypeFromUrl) activeFilterCount++;
+    if (minPriceFromUrl != null || maxPriceFromUrl != null) activeFilterCount++;
+    if (minSizeFromUrl != null || maxSizeFromUrl != null) activeFilterCount++;
+    if (amenitiesFromUrl.length > 0) activeFilterCount += amenitiesFromUrl.length;
+    if (inspectionFromUrl !== 'all') activeFilterCount++;
+    if (sortFromUrl !== 'newest') activeFilterCount++;
+
+    const hasActiveFilters = activeFilterCount > 0;
 
     return (
         <div className="rooms-page">
@@ -359,37 +487,61 @@ export function RoomsPage() {
             </div>
 
             <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-6">
-                {/* Search Bar */}
+                {/* Multi-Field Search Bar: Keyword, City, District */}
                 <form
-                    className="hx-search"
-                    style={{ margin: '16px 0 24px' }}
+                    className="rooms-search-form-v2"
                     onSubmit={(e) => {
                         e.preventDefault();
                         const form = new FormData(e.currentTarget);
                         updateParams({
                             keyword: String(form.get('keyword') || ''),
-                            city: String(form.get('city') || ''),
+                            city: searchCity || undefined,
+                            district: searchDistrict || undefined,
                             page: undefined
                         });
                     }}
                 >
-                    <input
-                        name="keyword"
-                        aria-label="Từ khóa tìm phòng"
-                        placeholder="Tìm theo tên phòng, khu vực, trường đại học gần bạn (ĐH Ngoại Thương, RMIT, HUTECH…)"
-                        defaultValue={keywordFromUrl}
-                        key={'keyword-' + keywordFromUrl}
-                    />
-                    <input
-                        name="city"
-                        aria-label="Thành phố"
-                        placeholder="Thành phố (TP.HCM, Hà Nội…)"
-                        defaultValue={cityFromUrl}
-                        key={'city-' + cityFromUrl}
-                    />
-                    <button className="hx-button" type="submit">
-                        <Search size={16} style={{ display: 'inline', marginRight: 6 }} />
-                        Tìm phòng
+                    <div className="rooms-search-input-wrap">
+                        <Search size={18} color="#10B981" />
+                        <input
+                            name="keyword"
+                            aria-label="Từ khóa tìm phòng"
+                            placeholder="Tìm theo tên phòng, đường, trường ĐH gần bạn (ĐH Ngoại Thương, RMIT, HUTECH, Bách Khoa…)"
+                            defaultValue={keywordFromUrl}
+                            key={'keyword-' + keywordFromUrl}
+                        />
+                    </div>
+
+                    <div className="rooms-search-select-wrap">
+                        <Building size={16} color="#64748B" style={{ marginRight: 6 }} />
+                        <select
+                            className="rooms-search-select"
+                            value={searchCity}
+                            onChange={(e) => handleCitySelectChange(e.target.value)}
+                        >
+                            <option value="">Tất cả thành phố</option>
+                            {POPULAR_LOCATIONS.map(c => (
+                                <option key={c.name} value={c.name}>{c.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="rooms-search-select-wrap">
+                        <MapPin size={16} color="#64748B" style={{ marginRight: 6 }} />
+                        <select
+                            className="rooms-search-select"
+                            value={searchDistrict}
+                            onChange={(e) => handleDistrictSelectChange(e.target.value)}
+                        >
+                            <option value="">Tất cả quận / huyện</option>
+                            {currentDistricts.map(d => (
+                                <option key={d} value={d}>{d}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <button className="rooms-search-submit-btn" type="submit">
+                        <Search size={16} /> Tìm phòng
                     </button>
                 </form>
 
@@ -427,7 +579,7 @@ export function RoomsPage() {
                     </div>
                 </div>
 
-                {/* Categories & Filter Reset */}
+                {/* Categories Bar */}
                 <div className="rooms-toolbar-top">
                     <div className="rooms-category-bar">
                         {typeTabs.map((tab) => (
@@ -444,94 +596,284 @@ export function RoomsPage() {
 
                     {hasActiveFilters && (
                         <button type="button" className="rooms-reset-filters" onClick={handleResetAllFilters}>
+                            <RotateCcw size={13} style={{ display: 'inline', marginRight: 4 }} />
                             {t('rooms.resetAllFilters')}
                         </button>
                     )}
                 </div>
 
-                {/* Sort Bar */}
-                <div className="rooms-sort-row" role="group" aria-label={t('rooms.sortNewest')}>
-                    {SORT_OPTIONS.map((opt) => (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            className={`rooms-sort-tab ${sortFromUrl === opt.value ? 'active' : ''}`}
-                            onClick={() => handleSortChange(opt.value)}
-                        >
-                            {t(opt.labelKey)}
-                        </button>
-                    ))}
+                {/* Comprehensive Advanced Filter Box */}
+                <div className={`rooms-advanced-filter-card ${isFilterExpanded ? 'expanded' : ''}`}>
+                    <div
+                        className="rooms-advanced-filter-header"
+                        onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+                    >
+                        <div className="rooms-advanced-title">
+                            <SlidersHorizontal size={18} color="#10B981" />
+                            <span>Bộ lọc chi tiết & Tiện nghi phòng</span>
+                            {activeFilterCount > 0 && (
+                                <span className="rooms-filter-badge-count">{activeFilterCount} đang chọn</span>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#059669', fontWeight: 600 }}>
+                            <span>{isFilterExpanded ? 'Thu gọn bộ lọc' : 'Mở rộng bộ lọc chi tiết'}</span>
+                            {isFilterExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </div>
+                    </div>
+
+                    {isFilterExpanded && (
+                        <div className="rooms-advanced-filter-body">
+                            {/* Section 1: Khoảng giá thuê */}
+                            <div>
+                                <div className="rooms-filter-section-title">
+                                    <span>💰 Mức giá thuê tháng:</span>
+                                </div>
+                                <div className="rooms-price-chips">
+                                    {FILTER_PRICE_PRESETS.map((preset) => {
+                                        const isSelected = preset.id === 'any'
+                                            ? minPriceFromUrl == null && maxPriceFromUrl == null
+                                            : activePreset?.id === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                className={`rooms-price-chip ${isSelected ? 'active' : ''}`}
+                                                onClick={() => handlePricePreset(preset as any)}
+                                            >
+                                                {preset.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="rooms-custom-price" style={{ marginTop: 8 }}>
+                                    <span className="rooms-custom-price-label">Hoặc nhập khoảng giá (VNĐ):</span>
+                                    <div className="rooms-custom-price-inputs">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="rooms-price-input"
+                                            placeholder="Tối thiểu (VND)"
+                                            value={draftMinPrice}
+                                            onChange={(e) => setDraftMinPrice(e.target.value)}
+                                        />
+                                        <span className="rooms-price-input-sep">—</span>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="rooms-price-input"
+                                            placeholder="Tối đa (VND)"
+                                            value={draftMaxPrice}
+                                            onChange={(e) => setDraftMaxPrice(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="rooms-custom-price-actions">
+                                        <button type="button" className="rooms-price-action-primary" onClick={handleApplyCustomPrice}>
+                                            Áp dụng
+                                        </button>
+                                        <button type="button" className="rooms-price-action-secondary" onClick={handleClearPrice}>
+                                            Đặt lại
+                                        </button>
+                                    </div>
+                                    {priceApplyError && (
+                                        <p className="rooms-price-error" role="alert">Khoảng giá không hợp lệ (tối thiểu phải nhỏ hơn tối đa)</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Section 2: Diện tích phòng */}
+                            <div>
+                                <div className="rooms-filter-section-title">
+                                    <span>📐 Diện tích không gian:</span>
+                                </div>
+                                <div className="rooms-price-chips">
+                                    {FILTER_SIZE_PRESETS.map((preset) => {
+                                        const isSelected = preset.id === 'any'
+                                            ? minSizeFromUrl == null && maxSizeFromUrl == null
+                                            : activeSizePreset?.id === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                className={`rooms-price-chip ${isSelected ? 'active' : ''}`}
+                                                onClick={() => handleSizePreset(preset)}
+                                            >
+                                                {preset.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="rooms-custom-price" style={{ marginTop: 8 }}>
+                                    <span className="rooms-custom-price-label">Hoặc nhập diện tích (m²):</span>
+                                    <div className="rooms-custom-price-inputs">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="rooms-price-input"
+                                            placeholder="Min m²"
+                                            value={draftMinSize}
+                                            onChange={(e) => setDraftMinSize(e.target.value)}
+                                        />
+                                        <span className="rooms-price-input-sep">—</span>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="rooms-price-input"
+                                            placeholder="Max m²"
+                                            value={draftMaxSize}
+                                            onChange={(e) => setDraftMaxSize(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="rooms-custom-price-actions">
+                                        <button type="button" className="rooms-price-action-primary" onClick={handleApplyCustomSize}>
+                                            Áp dụng diện tích
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="rooms-price-action-secondary"
+                                            onClick={() => {
+                                                setDraftMinSize('');
+                                                setDraftMaxSize('');
+                                                updateParams({ minSize: undefined, maxSize: undefined, page: undefined });
+                                            }}
+                                        >
+                                            Đặt lại
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Tiện nghi & Nội thất */}
+                            <div>
+                                <div className="rooms-filter-section-title">
+                                    <Sparkles size={16} color="#10B981" />
+                                    <span>Tiện nghi & Trang thiết bị (chọn nhiều tiện ích):</span>
+                                </div>
+                                <div className="rooms-amenities-grid">
+                                    {FILTER_AMENITIES.map((am) => {
+                                        const isActive = amenitiesFromUrl.includes(am.name);
+                                        return (
+                                            <button
+                                                key={am.id}
+                                                type="button"
+                                                className={`rooms-amenity-toggle ${isActive ? 'active' : ''}`}
+                                                onClick={() => handleAmenityToggle(am.name)}
+                                            >
+                                                <span>{am.icon}</span>
+                                                <span>{am.name}</span>
+                                                {isActive && <Check size={14} color="#059669" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Section 4: Sắp xếp kết quả */}
+                            <div>
+                                <div className="rooms-filter-section-title">
+                                    <span>⚡ Sắp xếp kết quả:</span>
+                                </div>
+                                <div className="rooms-sort-row" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>
+                                    {FILTER_SORT_OPTIONS.map((opt) => (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            className={`rooms-sort-tab ${sortFromUrl === opt.value ? 'active' : ''}`}
+                                            onClick={() => handleSortChange(opt.value as any)}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Price Filter Collapsible */}
-                <details className="rooms-price-panel">
-                    <summary className="rooms-price-summary">
-                        <span>{t('rooms.filtersToggle')}</span>
-                        <span className="rooms-price-summary-hint">
-                            {activePreset
-                                ? t(activePreset.labelKey)
-                                : hasCustomPrice
-                                    ? t('rooms.customPrice')
-                                    : t('rooms.priceAny')}
+                {/* Active Filters Badges Strip */}
+                {hasActiveFilters && (
+                    <div className="rooms-active-tags-strip">
+                        <span className="rooms-filter-results-info">
+                            Tìm thấy <strong>{rooms.length}</strong> phòng phù hợp:
                         </span>
-                    </summary>
-                    <div className="rooms-price-chips">
-                        {PRICE_PRESETS.map((preset) => (
-                            <button
-                                key={preset.id}
-                                type="button"
-                                className={`rooms-price-chip ${preset.id === 'any'
-                                    ? minPriceFromUrl == null && maxPriceFromUrl == null
-                                        ? 'active'
-                                        : ''
-                                    : activePreset?.id === preset.id
-                                        ? 'active'
-                                        : ''
-                                    }`}
-                                onClick={() => handlePricePreset(preset)}
-                            >
-                                {t(preset.labelKey)}
-                            </button>
+
+                        {keywordFromUrl && (
+                            <span className="rooms-active-tag">
+                                Từ khóa: "{keywordFromUrl}"
+                                <button className="rooms-active-tag-remove" onClick={() => updateParams({ keyword: undefined, page: undefined })}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {cityFromUrl && (
+                            <span className="rooms-active-tag">
+                                Thành phố: {cityFromUrl}
+                                <button className="rooms-active-tag-remove" onClick={() => updateParams({ city: undefined, district: undefined, page: undefined })}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {districtFromUrl && (
+                            <span className="rooms-active-tag">
+                                {districtFromUrl}
+                                <button className="rooms-active-tag-remove" onClick={() => updateParams({ district: undefined, page: undefined })}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {roomTypeFromUrl && (
+                            <span className="rooms-active-tag">
+                                {activeTypeLabel}
+                                <button className="rooms-active-tag-remove" onClick={() => updateParams({ roomType: undefined, page: undefined })}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {(minPriceFromUrl != null || maxPriceFromUrl != null) && (
+                            <span className="rooms-active-tag">
+                                Giá: {minPriceFromUrl != null ? `Từ ${(minPriceFromUrl / 1e6).toFixed(1)}tr` : ''} {maxPriceFromUrl != null ? `Đến ${(maxPriceFromUrl / 1e6).toFixed(1)}tr` : ''}
+                                <button className="rooms-active-tag-remove" onClick={() => handleClearPrice()}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {(minSizeFromUrl != null || maxSizeFromUrl != null) && (
+                            <span className="rooms-active-tag">
+                                Diện tích: {minSizeFromUrl != null ? `Từ ${minSizeFromUrl}m²` : ''} {maxSizeFromUrl != null ? `Đến ${maxSizeFromUrl}m²` : ''}
+                                <button className="rooms-active-tag-remove" onClick={() => updateParams({ minSize: undefined, maxSize: undefined, page: undefined })}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {amenitiesFromUrl.map(am => (
+                            <span key={am} className="rooms-active-tag">
+                                ✓ {am}
+                                <button className="rooms-active-tag-remove" onClick={() => handleAmenityToggle(am)}>
+                                    <X size={14} />
+                                </button>
+                            </span>
                         ))}
+
+                        {inspectionFromUrl !== 'all' && (
+                            <span className="rooms-active-tag">
+                                {inspectionFromUrl === 'verified' ? 'Đã kiểm định 100%' : 'Chờ đối chiếu'}
+                                <button className="rooms-active-tag-remove" onClick={() => handleInspectionFilterChange('all')}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        <button type="button" className="rooms-reset-filters" onClick={handleResetAllFilters}>
+                            <RotateCcw size={12} style={{ display: 'inline', marginRight: 4 }} />
+                            Xóa tất cả
+                        </button>
                     </div>
-                    <div className="rooms-custom-price">
-                        <span className="rooms-custom-price-label">{t('rooms.customPrice')}</span>
-                        <div className="rooms-custom-price-inputs">
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                className="rooms-price-input"
-                                placeholder={t('rooms.minPriceShort')}
-                                value={draftMinPrice}
-                                onChange={(e) => setDraftMinPrice(e.target.value)}
-                                aria-label={t('rooms.minPriceShort')}
-                            />
-                            <span className="rooms-price-input-sep">—</span>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                className="rooms-price-input"
-                                placeholder={t('rooms.maxPriceShort')}
-                                value={draftMaxPrice}
-                                onChange={(e) => setDraftMaxPrice(e.target.value)}
-                                aria-label={t('rooms.maxPriceShort')}
-                            />
-                        </div>
-                        <div className="rooms-custom-price-actions">
-                            <button type="button" className="rooms-price-action-primary" onClick={handleApplyCustomPrice}>
-                                {t('rooms.applyPrice')}
-                            </button>
-                            <button type="button" className="rooms-price-action-secondary" onClick={handleClearPrice}>
-                                {t('rooms.clearPrice')}
-                            </button>
-                        </div>
-                        {priceApplyError ? (
-                            <p className="rooms-price-error" role="alert">
-                                {t('rooms.priceInvalidRange')}
-                            </p>
-                        ) : null}
-                    </div>
-                </details>
+                )}
 
                 {/* Scope link */}
                 <button

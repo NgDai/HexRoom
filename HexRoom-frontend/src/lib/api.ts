@@ -1673,12 +1673,15 @@ export interface PublicRoomItem {
     title?: string;
     area?: number;
     thumbnail_url?: string | null;
+    district?: string | null;
+    city?: string | null;
+    address?: string | null;
 }
 
 /**
  * GET /rooms – list rooms (public, no auth).
  */
-export type PublicRoomsSort = 'newest' | 'recommended' | 'price_asc' | 'price_desc';
+export type PublicRoomsSort = 'newest' | 'recommended' | 'price_asc' | 'price_desc' | 'size_desc';
 
 export async function getPublicRoomsRequest(params?: {
     page?: number;
@@ -1686,6 +1689,9 @@ export async function getPublicRoomsRequest(params?: {
     roomType?: string;
     minPrice?: number;
     maxPrice?: number;
+    minSize?: number;
+    maxSize?: number;
+    district?: string;
     sort?: PublicRoomsSort;
     keyword?: string;
     city?: string;
@@ -1703,6 +1709,9 @@ export async function getPublicRoomsRequest(params?: {
     if (params?.sort && params.sort !== 'newest') search.set('sort', params.sort);
     if (params?.keyword) search.set('keyword', params.keyword);
     if (params?.city) search.set('city', params.city);
+    if (params?.district) search.set('district', params.district);
+    if (params?.minSize) search.set('minSize', String(params.minSize));
+    if (params?.maxSize) search.set('maxSize', String(params.maxSize));
     const qs = search.toString();
     const url = getApiUrl(`/rooms${qs ? `?${qs}` : ''}`);
     const res = await fetch(url, { cache: 'no-store' });
