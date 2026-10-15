@@ -1,25 +1,64 @@
-import { Calendar } from 'lucide-react';
+import { Calendar, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface EmptyStateProps {
     onExplore: () => void;
+    tabLabel?: string;
 }
 
-export function EmptyState({ onExplore }: EmptyStateProps) {
+export function EmptyState({ onExplore, tabLabel }: EmptyStateProps) {
     return (
-        <div className="bg-card rounded-xl shadow-sm p-12 text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="font-semibold mb-2">Chưa có booking nào</h3>
-            <p className="text-foreground/60 mb-6">
-                Bắt đầu tìm kiếm phòng trọ phù hợp với bạn ngay hôm nay!
-            </p>
-            <button
-                onClick={onExplore}
-                className="px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-sm"
+        <div
+            style={{
+                background: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: 20,
+                padding: '48px 24px',
+                textAlign: 'center',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
+            }}
+        >
+            <div
+                style={{
+                    width: 64,
+                    height: 64,
+                    background: '#ECFDF5',
+                    border: '1px solid #A7F3D0',
+                    borderRadius: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                    color: '#059669',
+                }}
             >
-                Khám phá phòng trọ
-            </button>
+                <Calendar size={32} />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>
+                Chưa có {tabLabel ? tabLabel.toLowerCase() : 'lịch hẹn xem phòng nào'}
+            </h3>
+            <p style={{ fontSize: 14, color: '#64748B', maxWidth: 480, margin: '0 auto 24px', lineHeight: 1.6 }}>
+                Khám phá hàng trăm căn phòng trọ đã được HexRoom kiểm định thực tế 4 bước và đặt lịch hẹn xem phòng ngay hôm nay!
+            </p>
+            <Link
+                to="/rooms"
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '12px 24px',
+                    background: '#10B981',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    borderRadius: 12,
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                    transition: 'all 0.2s ease',
+                }}
+            >
+                Khám phá phòng trọ <ArrowRight size={16} />
+            </Link>
         </div>
     );
 }

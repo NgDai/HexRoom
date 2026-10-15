@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState, useMemo, type FormEvent } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Header, Footer } from '../home/components';
 import { useAuth } from '@/app/context/useAuth';
 import { request, money, inspectionCategories, inspectionStatuses, type ApiRoom, type Page } from '@/lib/hexroom-api';
@@ -7,7 +7,9 @@ import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
 import {
     Building2, Home, PlusCircle, CheckCircle2, ShieldCheck, Camera, Sparkles,
     Banknote, FileText, Trash2, Eye, Calendar, Clock, Phone, AlertCircle,
-    Info, X, Image as ImageIcon, Zap, Droplets, Wifi, Car, Plus, Shield
+    Info, X, Image as ImageIcon, Zap, Droplets, Wifi, Car, Plus, Shield,
+    Search, Filter, ArrowUpDown, LayoutGrid, Table, Check, ExternalLink,
+    RefreshCw, ChevronRight, User, Users, MapPin, Tag, ArrowRight, Edit3, KeyRound
 } from 'lucide-react';
 
 type Rental = { id: string; title: string; status: string; address?: string; district?: string; city?: string };
@@ -87,6 +89,20 @@ const POPULAR_AMENITIES = [
     'Giường nệm', 'Tủ quần áo', 'Bàn làm việc', 'Không chung chủ'
 ];
 
+interface LocalBookingItem {
+    id: string;
+    roomId?: string;
+    roomName?: string;
+    propertyName?: string;
+    appointmentDate?: string;
+    appointmentTime?: string;
+    landlordName?: string;
+    landlordPhone?: string;
+    status?: string;
+    price?: number;
+    notes?: string;
+}
+
 export function WorkspacePage() {
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
@@ -98,6 +114,9 @@ export function WorkspacePage() {
     const [rooms, setRooms] = useState<ApiRoom[]>([]);
     const [rentals, setRentals] = useState<Rental[]>([]);
     const [selected, setSelected] = useState<ApiRoom | null>(null);
+    const [detailModalRoom, setDetailModalRoom] = useState<ApiRoom | null>(null);
+    const [detailImageIndex, setDetailImageIndex] = useState(0);
+
     const [mode, setMode] = useState<'list' | 'rental' | 'room' | 'inspection'>(() => {
         if (paramMode && ['list', 'rental', 'room', 'inspection'].includes(paramMode)) {
             return paramMode;
@@ -111,6 +130,17 @@ export function WorkspacePage() {
     const [page, setPage] = useState(1);
     const [pages, setPages] = useState(1);
     const [version, setVersion] = useState(0);
+
+    // Filter and search state
+    const [searchKeyword, setSearchKeyword] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'RENTED' | 'PENDING' | 'MAINTENANCE'>('ALL');
+    const [inspectionFilter, setInspectionFilter] = useState<'ALL' | 'VERIFIED' | 'UNVERIFIED'>('ALL');
+    const [rentalFilter, setRentalFilter] = useState<string>('ALL');
+    const [sortBy, setSortBy] = useState<'DEFAULT' | 'PRICE_ASC' | 'PRICE_DESC' | 'AREA_DESC'>('DEFAULT');
+    const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+
+    // Local bookings state
+    const [localBookings, setLocalBookings] = useState<LocalBookingItem[]>([]);
 
     // Sync mode if query param changes
     useEffect(() => {
@@ -146,21 +176,53 @@ export function WorkspacePage() {
     const [requestInspectorOnCreate, setRequestInspectorOnCreate] = useState(true);
     const [sampleModalImage, setSampleModalImage] = useState<{ title: string; url: string; tip: string } | null>(null);
 
+    // Load local appointments
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('hexroom_local_bookings');
+            if (raw) {
+                setLocalBookings(JSON.parse(raw));
+            }
+        } catch {
+            // ignore
+        }
+    }, [version]);
+
     useEffect(() => {
         if (!authorized) return;
         let active = true;
+
+        // Merge local custom rooms with mock/api data
+        let localCustomRooms: ApiRoom[] = [];
+        try {
+            localCustomRooms = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
+        } catch {
+            localCustomRooms = [];
+        }
+
         Promise.all([
-            request<Page<ApiRoom>>(`/rooms/manage?page=${page}`).catch(() => ({ items: MOCK_ROOMS_DATA.slice(0, 4), totalPages: 1 })),
+            request<Page<ApiRoom>>(`/rooms/manage?page=${page}`).catch(() => ({ items: MOCK_ROOMS_DATA, totalPages: 1 })),
             owner ? request<Page<Rental>>('/rentals/mine').catch(() => null) : Promise.resolve(null)
         ])
             .then(([data, rentalData]) => {
                 if (active) {
-                    setRooms(data?.items && data.items.length > 0 ? data.items : MOCK_ROOMS_DATA.slice(0, 4));
+                    const baseItems = data?.items && data.items.length > 0 ? data.items : MOCK_ROOMS_DATA;
+                    // Combine custom rooms
+                    const map = new Map<string, ApiRoom>();
+                    localCustomRooms.forEach(r => map.set(r.id, r));
+                    baseItems.forEach(r => {
+                        if (!map.has(r.id)) map.set(r.id, r);
+                    });
+                    setRooms(Array.from(map.values()));
                     setPages(data?.totalPages || 1);
+
                     const list = rentalData?.items ?? [];
                     if (list.length === 0) {
                         setRentals([
-                            { id: 'rental-default', title: 'Tòa nhà căn hộ dịch vụ HexHouse (Mặc định)', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' }
+                            { id: 'rental-001', title: 'Tòa nhà Căn hộ Dịch vụ HexHouse Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
+                            { id: 'rental-002', title: 'Khu Trọ An Ninh D5 Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
+                            { id: 'rental-003', title: 'Tòa Nhà Xanh Ung Văn Khiêm', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
+                            { id: 'rental-004', title: 'HexHouse Xô Viết Nghệ Tĩnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
                         ]);
                     } else {
                         setRentals(list);
@@ -169,9 +231,10 @@ export function WorkspacePage() {
             })
             .catch(() => {
                 if (active) {
-                    setRooms(MOCK_ROOMS_DATA.slice(0, 4));
+                    setRooms(MOCK_ROOMS_DATA);
                     setRentals([
-                        { id: 'rental-default', title: 'Tòa nhà căn hộ dịch vụ HexHouse (Mặc định)', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' }
+                        { id: 'rental-001', title: 'Tòa nhà Căn hộ Dịch vụ HexHouse Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
+                        { id: 'rental-002', title: 'Khu Trọ An Ninh D5 Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
                     ]);
                 }
             })
@@ -228,19 +291,17 @@ export function WorkspacePage() {
     const createRental = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const data = new FormData(e.currentTarget);
-        void action(() => request('/rentals', {
-            method: 'POST',
-            body: JSON.stringify({
-                title: data.get('title'),
-                description: data.get('description'),
-                location: {
-                    address: data.get('address'),
-                    district: data.get('district'),
-                    city: data.get('city')
-                },
-                images: []
-            })
-        }), 'Đã tạo Nhà trọ / Khu trọ thành công! Bây giờ bạn có thể thêm phòng vào nhà trọ này.');
+        const newRental: Rental = {
+            id: `rental-${Date.now()}`,
+            title: String(data.get('title') || 'Nhà trọ mới'),
+            address: String(data.get('address') || ''),
+            district: String(data.get('district') || ''),
+            city: String(data.get('city') || ''),
+            status: 'ACTIVE'
+        };
+        setRentals(prev => [newRental, ...prev]);
+        setSuccess('Đã tạo Nhà trọ / Khu trọ thành công! Bây giờ bạn có thể thêm phòng vào nhà trọ này.');
+        setMode('list');
     };
 
     const handleSaveRoom = (e: FormEvent<HTMLFormElement>) => {
@@ -248,7 +309,6 @@ export function WorkspacePage() {
         const data = new FormData(e.currentTarget);
         const num = (k: string) => data.get(k) === '' ? null : Number(data.get(k));
 
-        // Gather all photos: core slots (filtered non-empty) + extra photos
         const coreUrls = [
             slotPhotos.photoMain,
             slotPhotos.photoKitchen,
@@ -260,140 +320,97 @@ export function WorkspacePage() {
         const allImages = Array.from(new Set([...coreUrls, ...extraPhotos.map(s => s.trim()).filter(Boolean)]));
 
         const costs = {
-            deposit: num('deposit'),
-            electricityPerKwh: num('electricityPerKwh'),
-            waterPerM3: num('waterPerM3'),
-            internetMonthly: num('internetMonthly'),
-            parkingMonthly: num('parkingMonthly'),
-            serviceMonthly: num('serviceMonthly'),
+            deposit: num('deposit') ?? Number(formPrice) ?? 0,
+            electricityPerKwh: num('electricityPerKwh') ?? 3500,
+            waterPerM3: num('waterPerM3') ?? 20000,
+            internetMonthly: num('internetMonthly') ?? 100000,
+            parkingMonthly: num('parkingMonthly') ?? 120000,
+            serviceMonthly: num('serviceMonthly') ?? 100000,
             paymentCycleMonths: num('paymentCycleMonths') || 1,
-            houseRules: data.get('houseRules') ? String(data.get('houseRules')) : null,
-            feeNotes: data.get('feeNotes') ? String(data.get('feeNotes')) : null
+            houseRules: data.get('houseRules') ? String(data.get('houseRules')) : 'Giữ gìn vệ sinh chung, không làm ồn sau 23h.',
+            feeNotes: data.get('feeNotes') ? String(data.get('feeNotes')) : 'Điện nước tính theo chỉ số đồng hồ riêng từng phòng.'
         };
 
-        const roomPayload = {
-            rentalId: selected?.rentalId ?? data.get('rentalId'),
-            roomName: data.get('roomName'),
-            price: Number(formPrice) || num('price'),
-            sizeM2: num('sizeM2'),
-            maxPeople: num('maxPeople') || 1,
-            roomType: data.get('roomType'),
-            description: data.get('description'),
-            images: allImages,
-            amenities: formAmenities,
-            costs
+        const targetRentalId = (selected?.rentalId ?? data.get('rentalId') ?? rentals[0]?.id ?? 'rental-001') as string;
+        const targetRentalObj = rentals.find(r => r.id === targetRentalId);
+
+        const savedRoom: ApiRoom = {
+            id: selected?.id || `room-${Date.now()}`,
+            rentalId: targetRentalId,
+            roomName: (data.get('roomName') as string) || 'Phòng trọ mới đăng',
+            rentalTitle: targetRentalObj?.title || 'Tòa nhà căn hộ HexHouse',
+            description: (data.get('description') as string) || 'Phòng trọ khép kín đầy đủ tiện nghi, an ninh 24/7.',
+            price: Number(formPrice) || num('price') || 4000000,
+            sizeM2: num('sizeM2') || 28,
+            maxPeople: num('maxPeople') || 2,
+            roomType: (data.get('roomType') as string) || 'STUDIO',
+            status: selected?.status || 'AVAILABLE',
+            address: targetRentalObj?.address || '152/24 Nguyễn Gia Trí, Phường 25',
+            district: targetRentalObj?.district || 'Quận Bình Thạnh',
+            city: targetRentalObj?.city || 'Hồ Chí Minh',
+            images: allImages.length ? allImages : ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000'],
+            amenities: formAmenities.length ? formAmenities : ['Máy lạnh', 'Tủ lạnh', 'Khóa vân tay', 'Wifi tốc độ cao'],
+            costs,
+            availabilityConfirmedAt: selected?.availabilityConfirmedAt || new Date().toISOString(),
+            createdAt: selected?.createdAt || new Date().toISOString()
         };
 
-        void action(async () => {
-            let savedRoom: ApiRoom | null = null;
+        // Save to state and localStorage
+        setRooms(prev => [savedRoom, ...prev.filter(r => r.id !== savedRoom.id)]);
+        try {
+            const prevCustom = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
+            const nextCustom = [savedRoom, ...prevCustom.filter((r: any) => r.id !== savedRoom.id)];
+            localStorage.setItem('hexroom_custom_rooms', JSON.stringify(nextCustom));
+        } catch {
+            // ignore
+        }
+
+        // If requested inspector
+        if (requestInspectorOnCreate) {
             try {
-                savedRoom = await request<ApiRoom>(selected ? `/rooms/${selected.id}` : '/rooms', {
-                    method: selected ? 'PUT' : 'POST',
-                    body: JSON.stringify(roomPayload)
-                });
-            } catch {
-                const newId = selected?.id || `room-${Date.now()}`;
-                savedRoom = {
-                    id: newId,
-                    rentalId: (selected?.rentalId ?? data.get('rentalId') ?? 'rental-default') as string,
-                    roomName: (data.get('roomName') as string) || 'Phòng trọ mới đăng',
-                    rentalTitle: 'Nhà trọ HexHouse',
-                    description: (data.get('description') as string) || '',
-                    price: Number(formPrice) || num('price') || 3500000,
-                    sizeM2: num('sizeM2') || 25,
-                    maxPeople: num('maxPeople') || 2,
-                    roomType: (data.get('roomType') as string) || 'STUDIO',
-                    status: 'PENDING',
-                    address: '152/24 Nguyễn Gia Trí',
-                    district: 'Quận Bình Thạnh',
-                    city: 'Hồ Chí Minh',
-                    images: allImages.length ? allImages : ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000'],
-                    amenities: formAmenities,
-                    costs,
-                    availabilityConfirmedAt: new Date().toISOString(),
+                const reqObj = {
+                    roomId: savedRoom.id,
+                    roomName: savedRoom.roomName,
+                    preferredDate: inspectDate,
+                    preferredTimeSlot: inspectTimeSlot,
+                    contactPhone: inspectPhone || user?.phone || 'Chưa cung cấp',
+                    notes: inspectNotes || 'Yêu cầu kiểm định phòng mới tạo',
                     createdAt: new Date().toISOString()
                 };
+                const prevReqs = JSON.parse(localStorage.getItem('hexroom_inspection_requests') || '[]');
+                localStorage.setItem('hexroom_inspection_requests', JSON.stringify([reqObj, ...prevReqs.filter((r: any) => r.roomId !== savedRoom.id)]));
+            } catch {
+                // ignore
             }
+        }
 
-            if (savedRoom) {
-                setRooms(prev => [savedRoom!, ...prev.filter(r => r.id !== savedRoom!.id)]);
-                try {
-                    const prevCustom = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
-                    const nextCustom = [savedRoom, ...prevCustom.filter((r: any) => r.id !== savedRoom!.id)];
-                    localStorage.setItem('hexroom_custom_rooms', JSON.stringify(nextCustom));
-                } catch {
-                    // ignore storage parse issues
-                }
-            }
-
-            // If landlord opted to request inspection on creation
-            if (requestInspectorOnCreate && savedRoom?.id) {
-                try {
-                    const reqObj = {
-                        roomId: savedRoom.id,
-                        roomName: savedRoom.roomName,
-                        preferredDate: inspectDate,
-                        preferredTimeSlot: inspectTimeSlot,
-                        contactPhone: inspectPhone || user?.phone || 'Chưa cung cấp',
-                        notes: inspectNotes || 'Yêu cầu kiểm định phòng mới tạo',
-                        createdAt: new Date().toISOString()
-                    };
-                    const prevReqs = JSON.parse(localStorage.getItem('hexroom_inspection_requests') || '[]');
-                    localStorage.setItem('hexroom_inspection_requests', JSON.stringify([reqObj, ...prevReqs.filter((r: any) => r.roomId !== savedRoom!.id)]));
-                } catch {
-                    // ignore
-                }
-
-                try {
-                    await request(`/rooms/${savedRoom.id}/inspections/request`, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            category: 'CONDITION',
-                            preferredDate: inspectDate,
-                            preferredTimeSlot: inspectTimeSlot,
-                            contactPhone: inspectPhone || user?.phone || 'Chưa cung cấp',
-                            notes: inspectNotes || 'Yêu cầu kiểm định phòng mới tạo'
-                        })
-                    });
-                } catch {
-                    // Ignore if inspection request endpoint is processing
-                }
-            }
-        }, selected ? 'Đã cập nhật thông tin phòng thành công.' : 'Đã tạo phòng mới thành công! Yêu cầu kiểm định tại chỗ đã được chuyển tới nhân viên điều phối.');
+        setSuccess(selected ? 'Đã cập nhật thông tin phòng thành công.' : 'Đã đăng phòng trọ mới thành công! Yêu cầu kiểm định tại chỗ đã được tiếp nhận.');
+        setMode('list');
+        setSelected(null);
     };
 
     const submitInspectionRequest = (e: FormEvent) => {
         e.preventDefault();
         if (!inspectionTargetRoom) return;
 
-        void action(async () => {
-            try {
-                const reqObj = {
-                    roomId: inspectionTargetRoom.id,
-                    roomName: inspectionTargetRoom.roomName,
-                    preferredDate: inspectDate,
-                    preferredTimeSlot: inspectTimeSlot,
-                    contactPhone: inspectPhone,
-                    notes: `Phạm vi: ${inspectScope.join(', ')} | Ghi chú: ${inspectNotes}`,
-                    createdAt: new Date().toISOString()
-                };
-                const prevReqs = JSON.parse(localStorage.getItem('hexroom_inspection_requests') || '[]');
-                localStorage.setItem('hexroom_inspection_requests', JSON.stringify([reqObj, ...prevReqs.filter((r: any) => r.roomId !== inspectionTargetRoom.id)]));
-            } catch {
-                // ignore
-            }
+        try {
+            const reqObj = {
+                roomId: inspectionTargetRoom.id,
+                roomName: inspectionTargetRoom.roomName,
+                preferredDate: inspectDate,
+                preferredTimeSlot: inspectTimeSlot,
+                contactPhone: inspectPhone,
+                notes: `Phạm vi: ${inspectScope.join(', ')} | Ghi chú: ${inspectNotes}`,
+                createdAt: new Date().toISOString()
+            };
+            const prevReqs = JSON.parse(localStorage.getItem('hexroom_inspection_requests') || '[]');
+            localStorage.setItem('hexroom_inspection_requests', JSON.stringify([reqObj, ...prevReqs.filter((r: any) => r.roomId !== inspectionTargetRoom.id)]));
+        } catch {
+            // ignore
+        }
 
-            return request(`/rooms/${inspectionTargetRoom.id}/inspections/request`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    category: 'CONDITION',
-                    preferredDate: inspectDate,
-                    preferredTimeSlot: inspectTimeSlot,
-                    contactPhone: inspectPhone,
-                    notes: `Phạm vi: ${inspectScope.join(', ')} | Ghi chú: ${inspectNotes}`
-                })
-            });
-        }, `Đã gửi yêu cầu kiểm định cho phòng "${inspectionTargetRoom.roomName}". Inspector của HexRoom sẽ liên hệ bạn sớm nhất!`);
+        setSuccess(`Đã gửi yêu cầu kiểm định cho phòng "${inspectionTargetRoom.roomName}". Inspector của HexRoom sẽ liên hệ bạn sớm nhất!`);
+        setInspectionTargetRoom(null);
     };
 
     const toggleAmenity = (name: string) => {
@@ -412,295 +429,1066 @@ export function WorkspacePage() {
         });
     };
 
+    // Quick status toggle
+    const handleQuickStatusChange = (roomId: string, newStatus: string) => {
+        const updated = rooms.map(r => r.id === roomId ? { ...r, status: newStatus as any } : r);
+        setRooms(updated);
+        try {
+            const customRooms = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
+            const nextCustom = customRooms.map((r: any) => r.id === roomId ? { ...r, status: newStatus } : r);
+            localStorage.setItem('hexroom_custom_rooms', JSON.stringify(nextCustom));
+        } catch {
+            // ignore
+        }
+        if (detailModalRoom && detailModalRoom.id === roomId) {
+            setDetailModalRoom(prev => prev ? { ...prev, status: newStatus as any } : null);
+        }
+    };
+
+    // Delete room
+    const handleDeleteRoom = (room: ApiRoom) => {
+        const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa phòng "${room.roomName}" khỏi danh sách quản lý?`);
+        if (!confirmed) return;
+        const updated = rooms.filter(r => r.id !== room.id);
+        setRooms(updated);
+        try {
+            const customRooms = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
+            const nextCustom = customRooms.filter((r: any) => r.id !== room.id);
+            localStorage.setItem('hexroom_custom_rooms', JSON.stringify(nextCustom));
+        } catch {
+            // ignore
+        }
+        if (detailModalRoom?.id === room.id) {
+            setDetailModalRoom(null);
+        }
+        setSuccess(`Đã xóa phòng "${room.roomName}".`);
+    };
+
+    // Get bookings associated with a room
+    const getBookingsForRoom = (room: ApiRoom) => {
+        return localBookings.filter(b => b.roomId === room.id || (b.roomName && room.roomName && b.roomName.toLowerCase() === room.roomName.toLowerCase()));
+    };
+
+    // KPI Metrics
+    const totalRooms = rooms.length;
+    const availableRooms = rooms.filter(r => r.status === 'AVAILABLE').length;
+    const rentedRooms = rooms.filter(r => r.status === 'RENTED').length;
+    const pendingRooms = rooms.filter(r => r.status === 'PENDING').length;
+    const verifiedRooms = rooms.filter(r => Boolean(r.availabilityConfirmedAt)).length;
+    const totalRevenue = rooms.reduce((acc, r) => acc + (Number(r.price) || 0), 0);
+    const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
+
+    // Filtered rooms
+    const filteredRooms = useMemo(() => {
+        return rooms.filter(r => {
+            if (searchKeyword.trim()) {
+                const kw = searchKeyword.toLowerCase();
+                const matchName = (r.roomName || '').toLowerCase().includes(kw);
+                const matchRental = (r.rentalTitle || '').toLowerCase().includes(kw);
+                const matchAddress = (r.address || '').toLowerCase().includes(kw);
+                const matchDistrict = (r.district || '').toLowerCase().includes(kw);
+                const matchId = (r.id || '').toLowerCase().includes(kw);
+                if (!matchName && !matchRental && !matchAddress && !matchDistrict && !matchId) {
+                    return false;
+                }
+            }
+            if (statusFilter !== 'ALL' && r.status !== statusFilter) {
+                return false;
+            }
+            if (inspectionFilter === 'VERIFIED' && !r.availabilityConfirmedAt) {
+                return false;
+            }
+            if (inspectionFilter === 'UNVERIFIED' && r.availabilityConfirmedAt) {
+                return false;
+            }
+            if (rentalFilter !== 'ALL' && r.rentalId !== rentalFilter) {
+                return false;
+            }
+            return true;
+        }).sort((a, b) => {
+            if (sortBy === 'PRICE_ASC') return (a.price || 0) - (b.price || 0);
+            if (sortBy === 'PRICE_DESC') return (b.price || 0) - (a.price || 0);
+            if (sortBy === 'AREA_DESC') return (b.sizeM2 || 0) - (a.sizeM2 || 0);
+            return 0;
+        });
+    }, [rooms, searchKeyword, statusFilter, inspectionFilter, rentalFilter, sortBy]);
+
+    const getStatusConfig = (status: string) => {
+        switch (status) {
+            case 'AVAILABLE':
+                return { label: '🟢 Đang cho thuê', bg: '#ECFDF5', text: '#065F46', border: '#A7F3D0' };
+            case 'RENTED':
+                return { label: '🔵 Đã có người thuê', bg: '#EFF6FF', text: '#1E40AF', border: '#BFDBFE' };
+            case 'MAINTENANCE':
+                return { label: '🟠 Đang bảo trì', bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA' };
+            case 'PENDING':
+                return { label: '⏳ Chờ phê duyệt', bg: '#FFFBEB', text: '#92400E', border: '#FDE68A' };
+            default:
+                return { label: status, bg: '#F1F5F9', text: '#475569', border: '#CBD5E1' };
+        }
+    };
+
     return (
-        <div className="hx-page">
+        <div className="hx-page" style={{ background: '#FFFFFF', minHeight: '100vh' }}>
             <Header />
 
-            <main className="hx-container hx-section">
-                <span className="hx-eyebrow">
-                    <span /> KHÔNG GIAN QUẢN LÝ DÀNH CHO CHỦ TRỌ & QUẢN TRỊ
-                </span>
-                <h1 style={{ fontSize: 32, fontWeight: 800, margin: '14px 0 24px', color: '#0F172A' }}>
-                    {staff ? 'Kiểm duyệt & Hồ sơ kiểm định phòng' : 'Quản lý Nhà trọ & Danh mục phòng của bạn'}
-                </h1>
+            <main className="hx-container hx-section" style={{ paddingTop: 32, paddingBottom: 64 }}>
+                {/* Header Title */}
+                <div style={{ marginBottom: 28 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', color: '#059669', fontSize: 11, fontWeight: 750, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
+                        <Building2 size={13} /> Không gian quản lý phòng trọ & kiểm định
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                        <div>
+                            <h1 style={{ fontSize: 32, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: '0 0 8px' }}>
+                                {staff ? 'Kiểm duyệt & Hồ sơ kiểm định phòng trọ' : 'Quản lý phòng trọ & Khu trọ của bạn'}
+                            </h1>
+                            <p style={{ fontSize: 15, color: '#64748B', maxWidth: 740, lineHeight: 1.6, margin: 0 }}>
+                                Theo dõi chi tiết từng phòng trọ, quản lý biểu phí minh bạch, lịch hẹn đón khách xem phòng và chứng nhận kiểm định thực tế 4 bước.
+                            </p>
+                        </div>
+
+                        {owner && (
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setMode('room'); setSelected(null); }}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '10px 20px',
+                                        background: '#10B981',
+                                        color: '#FFFFFF',
+                                        fontWeight: 750,
+                                        fontSize: 14,
+                                        borderRadius: 12,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                >
+                                    <Plus size={16} /> Đăng thêm phòng mới
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setMode('rental'); setSelected(null); }}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '10px 18px',
+                                        background: '#FFFFFF',
+                                        color: '#334155',
+                                        fontWeight: 650,
+                                        fontSize: 14,
+                                        borderRadius: 12,
+                                        border: '1px solid #CBD5E1',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                >
+                                    <Home size={16} /> Thêm Nhà trọ / Khu trọ
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
                 {!authorized ? (
-                    <div className="hx-empty">
-                        <AlertCircle size={36} color="#EF4444" />
-                        <h3>Khu vực dành riêng cho chủ trọ & nhân viên kiểm duyệt</h3>
-                        <p>Vui lòng đăng nhập với tài khoản Chủ nhà (Landlord) để sử dụng không gian này.</p>
+                    <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: 48, textAlign: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 16, background: '#FEF2F2', border: '1px solid #FECDD3', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#DC2626' }}>
+                            <AlertCircle size={32} />
+                        </div>
+                        <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>
+                            Khu vực dành riêng cho chủ trọ & nhân viên kiểm duyệt
+                        </h3>
+                        <p style={{ fontSize: 14, color: '#64748B', maxWidth: 460, margin: '0 auto 24px' }}>
+                            Vui lòng đăng nhập với tài khoản Chủ nhà (Landlord) hoặc Quản trị viên để quản lý danh mục phòng trọ.
+                        </p>
+                        <Link
+                            to="/login"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', background: '#0F172A', color: '#FFFFFF', borderRadius: 12, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
+                        >
+                            Đăng nhập ngay
+                        </Link>
                     </div>
                 ) : (
                     <>
                         {error && (
-                            <div role="alert" className="hx-error" style={{ marginBottom: 20 }}>
+                            <div style={{ marginBottom: 20, padding: '12px 16px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FECDD3', color: '#DC2626', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600 }}>
                                 <AlertCircle size={18} />
-                                <span>{error}</span>
-                                <button type="button" className="hx-link" onClick={() => { setError(''); setVersion(v => v + 1); }}>
+                                <span style={{ flex: 1 }}>{error}</span>
+                                <button type="button" onClick={() => { setError(''); setVersion(v => v + 1); }} style={{ background: 'transparent', border: 'none', color: '#DC2626', cursor: 'pointer', textDecoration: 'underline' }}>
                                     Tải lại
                                 </button>
                             </div>
                         )}
 
                         {success && (
-                            <div role="status" className="hx-success" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ marginBottom: 20, padding: '12px 16px', borderRadius: 12, background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#065F46', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700 }}>
                                 <CheckCircle2 size={18} color="#059669" />
                                 <span>{success}</span>
                             </div>
                         )}
 
+                        {/* ── KPI METRICS CARDS (TỔNG QUAN CHI TIẾT) ── */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 28 }}>
+                            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748B', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                                    <span>TỔNG SỐ PHÒNG</span>
+                                    <Building2 size={16} style={{ color: '#059669' }} />
+                                </div>
+                                <div style={{ fontSize: 28, fontWeight: 850, color: '#0F172A' }}>{totalRooms}</div>
+                                <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                                    Thuộc {rentals.length} khu trọ / tòa nhà
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#FFFFFF', border: '1px solid #A7F3D0', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 8px rgba(16, 185, 129, 0.08)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#065F46', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                                    <span>ĐANG CHO THUÊ</span>
+                                    <span style={{ padding: '2px 8px', borderRadius: 999, background: '#ECFDF5', fontSize: 11, fontWeight: 800, color: '#059669' }}>
+                                        {totalRooms > 0 ? Math.round((availableRooms / totalRooms) * 100) : 0}%
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: 28, fontWeight: 850, color: '#059669' }}>{availableRooms}</div>
+                                <div style={{ fontSize: 11, color: '#047857', marginTop: 4 }}>
+                                    Sẵn sàng đón khách mới
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748B', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                                    <span>ĐÃ CHO THUÊ</span>
+                                    <Users size={16} style={{ color: '#2563EB' }} />
+                                </div>
+                                <div style={{ fontSize: 28, fontWeight: 850, color: '#1E40AF' }}>{rentedRooms}</div>
+                                <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                                    Tỷ lệ lấp đầy: {occupancyRate}%
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748B', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                                    <span>ĐÃ KIỂM ĐỊNH 100%</span>
+                                    <ShieldCheck size={16} style={{ color: '#10B981' }} />
+                                </div>
+                                <div style={{ fontSize: 28, fontWeight: 850, color: '#0F172A' }}>{verifiedRooms}</div>
+                                <div style={{ fontSize: 11, color: '#059669', fontWeight: 650, marginTop: 4 }}>
+                                    ✅ Đạt chuẩn đối chiếu tại chỗ
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748B', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                                    <span>LỊCH HẸN XEM PHÒNG</span>
+                                    <Calendar size={16} style={{ color: '#F59E0B' }} />
+                                </div>
+                                <div style={{ fontSize: 28, fontWeight: 850, color: '#D97706' }}>{localBookings.length}</div>
+                                <div style={{ fontSize: 11, color: '#B45309', marginTop: 4 }}>
+                                    Khách hẹn xem sắp tới
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748B', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                                    <span>TỔNG DOANH THU/THÁNG</span>
+                                    <Banknote size={16} style={{ color: '#059669' }} />
+                                </div>
+                                <div style={{ fontSize: 22, fontWeight: 850, color: '#0F172A' }}>{money(totalRevenue)}</div>
+                                <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                                    Khi lấp đầy 100% phòng
+                                </div>
+                            </div>
+                        </div>
+
                         {/* ── MODERN TAB BAR ── */}
-                        <div className="hx-tab-nav">
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '2px solid #E2E8F0', overflowX: 'auto', paddingBottom: 2 }}>
                             <button
                                 type="button"
-                                className={`hx-tab-btn ${mode === 'list' ? 'active' : ''}`}
                                 onClick={() => { setMode('list'); setSelected(null); }}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '10px 18px',
+                                    borderBottom: mode === 'list' ? '3px solid #10B981' : '3px solid transparent',
+                                    color: mode === 'list' ? '#059669' : '#64748B',
+                                    fontWeight: mode === 'list' ? 750 : 600,
+                                    fontSize: 14,
+                                    background: 'transparent',
+                                    borderTop: 'none',
+                                    borderLeft: 'none',
+                                    borderRight: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    whiteSpace: 'nowrap',
+                                    marginBottom: -2,
+                                }}
                             >
-                                <Building2 size={18} /> Danh sách phòng <span className="hx-tab-count">{rooms.length}</span>
+                                <Building2 size={16} /> Danh sách phòng trọ <span style={{ padding: '2px 8px', borderRadius: 999, background: mode === 'list' ? '#ECFDF5' : '#F1F5F9', fontSize: 11, fontWeight: 750, color: mode === 'list' ? '#065F46' : '#64748B' }}>{rooms.length}</span>
                             </button>
 
                             {owner && (
                                 <>
                                     <button
                                         type="button"
-                                        className={`hx-tab-btn ${mode === 'rental' ? 'active' : ''}`}
                                         onClick={() => { setMode('rental'); setSelected(null); }}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            padding: '10px 18px',
+                                            borderBottom: mode === 'rental' ? '3px solid #10B981' : '3px solid transparent',
+                                            color: mode === 'rental' ? '#059669' : '#64748B',
+                                            fontWeight: mode === 'rental' ? 750 : 600,
+                                            fontSize: 14,
+                                            background: 'transparent',
+                                            borderTop: 'none',
+                                            borderLeft: 'none',
+                                            borderRight: 'none',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            whiteSpace: 'nowrap',
+                                            marginBottom: -2,
+                                        }}
                                     >
-                                        <Home size={18} /> Quản lý Nhà trọ <span className="hx-tab-count">{rentals.length}</span>
+                                        <Home size={16} /> Quản lý Nhà trọ / Khu trọ <span style={{ padding: '2px 8px', borderRadius: 999, background: mode === 'rental' ? '#ECFDF5' : '#F1F5F9', fontSize: 11, fontWeight: 750, color: mode === 'rental' ? '#065F46' : '#64748B' }}>{rentals.length}</span>
                                     </button>
 
                                     <button
                                         type="button"
-                                        className={`hx-tab-btn ${mode === 'room' ? 'active' : ''}`}
                                         onClick={() => { setMode('room'); setSelected(null); }}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            padding: '10px 18px',
+                                            borderBottom: mode === 'room' ? '3px solid #10B981' : '3px solid transparent',
+                                            color: mode === 'room' ? '#059669' : '#64748B',
+                                            fontWeight: mode === 'room' ? 750 : 600,
+                                            fontSize: 14,
+                                            background: 'transparent',
+                                            borderTop: 'none',
+                                            borderLeft: 'none',
+                                            borderRight: 'none',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            whiteSpace: 'nowrap',
+                                            marginBottom: -2,
+                                        }}
                                     >
-                                        <PlusCircle size={18} /> {selected ? 'Cập nhật phòng' : 'Thêm phòng mới'}
+                                        <PlusCircle size={16} /> {selected ? `Cập nhật: ${selected.roomName}` : 'Đăng phòng mới'}
                                     </button>
                                 </>
                             )}
                         </div>
 
-                        {/* ── TAB 1: DANH SÁCH PHÒNG ── */}
+                        {/* ── TAB 1: DANH SÁCH PHÒNG CHI TIẾT ── */}
                         {mode === 'list' && (
-                            <section className="hx-panel">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-                                    <div>
-                                        <h2 style={{ margin: 0, fontSize: 20 }}>Tất cả phòng đang quản lý ({rooms.length})</h2>
-                                        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>
-                                            Theo dõi tình trạng kiểm định, cập nhật phòng và gửi yêu cầu Inspector xác minh.
-                                        </p>
+                            <section style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: 24, boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
+                                {/* Filter & Search Toolbar */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                                        <div>
+                                            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                                                Danh sách phòng trọ chi tiết ({filteredRooms.length}/{rooms.length})
+                                            </h2>
+                                            <p style={{ fontSize: 13, color: '#64748B', margin: '4px 0 0' }}>
+                                                Nhấp vào "Xem chi tiết" để xem đầy đủ hồ sơ kiểm định 5 góc ảnh, bảng giá & lịch hẹn của người thuê.
+                                            </p>
+                                        </div>
+
+                                        {/* View mode toggle */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F1F5F9', padding: 4, borderRadius: 12 }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewMode('table')}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    padding: '6px 12px',
+                                                    borderRadius: 8,
+                                                    border: 'none',
+                                                    fontSize: 12,
+                                                    fontWeight: 700,
+                                                    background: viewMode === 'table' ? '#FFFFFF' : 'transparent',
+                                                    color: viewMode === 'table' ? '#0F172A' : '#64748B',
+                                                    cursor: 'pointer',
+                                                    boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                                }}
+                                            >
+                                                <Table size={14} /> Dạng bảng
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewMode('grid')}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    padding: '6px 12px',
+                                                    borderRadius: 8,
+                                                    border: 'none',
+                                                    fontSize: 12,
+                                                    fontWeight: 700,
+                                                    background: viewMode === 'grid' ? '#FFFFFF' : 'transparent',
+                                                    color: viewMode === 'grid' ? '#0F172A' : '#64748B',
+                                                    cursor: 'pointer',
+                                                    boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                                }}
+                                            >
+                                                <LayoutGrid size={14} /> Dạng thẻ
+                                            </button>
+                                        </div>
                                     </div>
-                                    {owner && (
-                                        <button className="hx-button" onClick={() => { setMode('room'); setSelected(null); }}>
-                                            <Plus size={16} /> Thêm phòng mới
-                                        </button>
-                                    )}
+
+                                    {/* Search & Filter Controls */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, background: '#F8FAFC', padding: 14, borderRadius: 14, border: '1px solid #E2E8F0' }}>
+                                        {/* Search */}
+                                        <div style={{ position: 'relative' }}>
+                                            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                                            <input
+                                                type="text"
+                                                value={searchKeyword}
+                                                onChange={e => setSearchKeyword(e.target.value)}
+                                                placeholder="Tìm theo tên phòng, tòa nhà, địa chỉ..."
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '9px 12px 9px 36px',
+                                                    borderRadius: 10,
+                                                    border: '1px solid #CBD5E1',
+                                                    background: '#FFFFFF',
+                                                    fontSize: 13,
+                                                    color: '#0F172A',
+                                                    outline: 'none',
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Status Filter */}
+                                        <div>
+                                            <select
+                                                value={statusFilter}
+                                                onChange={e => setStatusFilter(e.target.value as any)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '9px 12px',
+                                                    borderRadius: 10,
+                                                    border: '1px solid #CBD5E1',
+                                                    background: '#FFFFFF',
+                                                    fontSize: 13,
+                                                    color: '#0F172A',
+                                                    outline: 'none',
+                                                }}
+                                            >
+                                                <option value="ALL">Tất cả trạng thái tin</option>
+                                                <option value="AVAILABLE">🟢 Đang cho thuê (Còn phòng)</option>
+                                                <option value="RENTED">🔵 Đã có người thuê</option>
+                                                <option value="MAINTENANCE">🟠 Đang bảo trì</option>
+                                                <option value="PENDING">🟡 Chờ phê duyệt</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Inspection Filter */}
+                                        <div>
+                                            <select
+                                                value={inspectionFilter}
+                                                onChange={e => setInspectionFilter(e.target.value as any)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '9px 12px',
+                                                    borderRadius: 10,
+                                                    border: '1px solid #CBD5E1',
+                                                    background: '#FFFFFF',
+                                                    fontSize: 13,
+                                                    color: '#0F172A',
+                                                    outline: 'none',
+                                                }}
+                                            >
+                                                <option value="ALL">Tất cả hồ sơ kiểm định</option>
+                                                <option value="VERIFIED">✅ Đã kiểm định 100%</option>
+                                                <option value="UNVERIFIED">⏳ Chờ Inspector thẩm định</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Sort By */}
+                                        <div>
+                                            <select
+                                                value={sortBy}
+                                                onChange={e => setSortBy(e.target.value as any)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '9px 12px',
+                                                    borderRadius: 10,
+                                                    border: '1px solid #CBD5E1',
+                                                    background: '#FFFFFF',
+                                                    fontSize: 13,
+                                                    color: '#0F172A',
+                                                    outline: 'none',
+                                                }}
+                                            >
+                                                <option value="DEFAULT">Sắp xếp mặc định</option>
+                                                <option value="PRICE_ASC">Giá thuê: Thấp đến cao</option>
+                                                <option value="PRICE_DESC">Giá thuê: Cao đến thấp</option>
+                                                <option value="AREA_DESC">Diện tích: Lớn nhất trước</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="hx-scroll">
-                                    <table className="hx-workspace-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Phòng / Nhà trọ</th>
-                                                <th>Giá thuê</th>
-                                                <th>Trạng thái tin</th>
-                                                <th>Kiểm định (Inspector)</th>
-                                                <th>Thao tác</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {rooms.map(room => {
-                                                const hasVerified = Boolean(room.availabilityConfirmedAt);
-                                                return (
-                                                    <tr key={room.id}>
-                                                        <td>
-                                                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                                                <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: '#F1F5F9', flexShrink: 0 }}>
-                                                                    {room.images && room.images[0] ? (
-                                                                        <img src={room.images[0]} alt={room.roomName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                    ) : (
-                                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>
-                                                                            <Home size={22} />
+                                {/* CONTENT: TABLE VIEW */}
+                                {viewMode === 'table' ? (
+                                    <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: 14 }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                                            <thead>
+                                                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: 12, fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                    <th style={{ padding: '14px 16px' }}>Căn phòng & Khu trọ</th>
+                                                    <th style={{ padding: '14px 16px' }}>Thông số</th>
+                                                    <th style={{ padding: '14px 16px' }}>Bảng giá & Chi phí</th>
+                                                    <th style={{ padding: '14px 16px' }}>Trạng thái phòng</th>
+                                                    <th style={{ padding: '14px 16px' }}>Kiểm định Inspector</th>
+                                                    <th style={{ padding: '14px 16px', textAlign: 'right' }}>Thao tác</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredRooms.map((room) => {
+                                                    const hasVerified = Boolean(room.availabilityConfirmedAt);
+                                                    const roomBookings = getBookingsForRoom(room);
+                                                    const statusCfg = getStatusConfig(room.status);
+
+                                                    return (
+                                                        <tr
+                                                            key={room.id}
+                                                            style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.15s ease' }}
+                                                            onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                        >
+                                                            {/* Room & Property info */}
+                                                            <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                                                                    <div
+                                                                        style={{
+                                                                            width: 72,
+                                                                            height: 72,
+                                                                            borderRadius: 12,
+                                                                            overflow: 'hidden',
+                                                                            background: '#F1F5F9',
+                                                                            flexShrink: 0,
+                                                                            cursor: 'pointer',
+                                                                            position: 'relative'
+                                                                        }}
+                                                                        onClick={() => { setDetailModalRoom(room); setDetailImageIndex(0); }}
+                                                                    >
+                                                                        {room.images && room.images[0] ? (
+                                                                            <img
+                                                                                src={room.images[0]}
+                                                                                alt={room.roomName}
+                                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                            />
+                                                                        ) : (
+                                                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>
+                                                                                <Home size={24} />
+                                                                            </div>
+                                                                        )}
+                                                                        {room.images && room.images.length > 1 && (
+                                                                            <span style={{ position: 'absolute', bottom: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
+                                                                                +{room.images.length}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div style={{ minWidth: 0 }}>
+                                                                        <div
+                                                                            style={{ fontWeight: 800, fontSize: 14, color: '#0F172A', cursor: 'pointer', lineHeight: 1.35 }}
+                                                                            onClick={() => { setDetailModalRoom(room); setDetailImageIndex(0); }}
+                                                                        >
+                                                                            {room.roomName}
                                                                         </div>
-                                                                    )}
-                                                                </div>
-                                                                <div>
-                                                                    <strong style={{ fontSize: 14, color: '#0F172A' }}>{room.roomName || 'Chưa đặt tên phòng'}</strong>
-                                                                    <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                                                                        {room.rentalTitle} · {room.roomType} · {room.sizeM2 ?? '—'} m²
+                                                                        <div style={{ fontSize: 12, color: '#059669', fontWeight: 650, marginTop: 2 }}>
+                                                                            {room.rentalTitle}
+                                                                        </div>
+                                                                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                            <MapPin size={12} style={{ color: '#94A3B8' }} />
+                                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                                                                                {room.address || 'Quận Bình Thạnh, TP.HCM'}
+                                                                            </span>
+                                                                        </div>
+                                                                        {roomBookings.length > 0 && (
+                                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, fontWeight: 750, color: '#D97706', background: '#FFFBEB', padding: '2px 8px', borderRadius: 6, border: '1px solid #FDE68A' }}>
+                                                                                <Calendar size={11} /> {roomBookings.length} lịch hẹn xem phòng
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <strong style={{ color: '#059669', fontSize: 15 }}>{money(room.price)}</strong>
-                                                            <div style={{ fontSize: 11, color: '#64748B' }}>
-                                                                Điện: {room.costs?.electricityPerKwh ? money(room.costs.electricityPerKwh) + '/kWh' : 'Chưa nhập'}
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <span className={`hx-badge ${room.status}`}>
-                                                                {{
-                                                                    PENDING: 'Chờ duyệt',
-                                                                    AVAILABLE: 'Đang cho thuê',
-                                                                    RENTED: 'Đã thuê',
-                                                                    MAINTENANCE: 'Bảo trì'
-                                                                }[room.status] ?? room.status}
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                                {hasVerified ? (
-                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#059669', fontWeight: 700 }}>
-                                                                        <CheckCircle2 size={14} /> Đã kiểm định 100%
-                                                                    </span>
-                                                                ) : (
-                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#D97706', fontWeight: 600 }}>
-                                                                        <Clock size={14} /> Chờ kiểm định tại chỗ
-                                                                    </span>
-                                                                )}
+                                                            </td>
 
-                                                                {owner && (
+                                                            {/* Specs */}
+                                                            <td style={{ padding: '14px 16px', verticalAlign: 'top', color: '#334155' }}>
+                                                                <div style={{ fontWeight: 700, fontSize: 13 }}>
+                                                                    {room.sizeM2 ?? 30} m²
+                                                                </div>
+                                                                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                                                                    Tối đa: {room.maxPeople ?? 2} người
+                                                                </div>
+                                                                <span style={{ display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 6, background: '#F1F5F9', fontSize: 11, fontWeight: 650, color: '#475569' }}>
+                                                                    {room.roomType === 'STUDIO' ? 'Studio khép kín' : room.roomType === 'PRIVATE' ? 'Phòng riêng' : room.roomType === 'SHARED' ? 'Ở ghép Coliving' : 'Căn hộ mini'}
+                                                                </span>
+                                                            </td>
+
+                                                            {/* Price & Costs */}
+                                                            <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                                                <div style={{ fontSize: 15, fontWeight: 850, color: '#059669' }}>
+                                                                    {money(room.price)}
+                                                                    <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B' }}> /tháng</span>
+                                                                </div>
+                                                                <div style={{ fontSize: 11, color: '#64748B', marginTop: 3 }}>
+                                                                    Cọc: {money(room.costs?.deposit || room.price)}
+                                                                </div>
+                                                                <div style={{ fontSize: 11, color: '#475569', marginTop: 3 }}>
+                                                                    ⚡ Điện: {room.costs?.electricityPerKwh ? `${money(room.costs.electricityPerKwh)}/kWh` : '3.500 đ/kWh'}
+                                                                </div>
+                                                                <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+                                                                    💧 Nước: {room.costs?.waterPerM3 ? `${money(room.costs.waterPerM3)}/m³` : '20.000 đ/m³'}
+                                                                </div>
+                                                            </td>
+
+                                                            {/* Status */}
+                                                            <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                                                <select
+                                                                    value={room.status}
+                                                                    onChange={e => handleQuickStatusChange(room.id, e.target.value)}
+                                                                    style={{
+                                                                        padding: '5px 10px',
+                                                                        borderRadius: 8,
+                                                                        fontSize: 12,
+                                                                        fontWeight: 750,
+                                                                        background: statusCfg.bg,
+                                                                        color: statusCfg.text,
+                                                                        border: `1px solid ${statusCfg.border}`,
+                                                                        cursor: 'pointer',
+                                                                        outline: 'none',
+                                                                    }}
+                                                                >
+                                                                    <option value="AVAILABLE">🟢 Cho thuê</option>
+                                                                    <option value="RENTED">🔵 Đã thuê</option>
+                                                                    <option value="MAINTENANCE">🟠 Bảo trì</option>
+                                                                    <option value="PENDING">🟡 Chờ duyệt</option>
+                                                                </select>
+                                                            </td>
+
+                                                            {/* Inspector */}
+                                                            <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                                                {hasVerified ? (
+                                                                    <div>
+                                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#065F46', fontSize: 11, fontWeight: 750 }}>
+                                                                            <CheckCircle2 size={13} color="#059669" /> Đã kiểm định 100%
+                                                                        </span>
+                                                                        <div style={{ fontSize: 10, color: '#64748B', marginTop: 4 }}>
+                                                                            Đã xác thực chỉ số & ảnh thật
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div>
+                                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E', fontSize: 11, fontWeight: 700 }}>
+                                                                            <Clock size={13} color="#D97706" /> Chờ kiểm định
+                                                                        </span>
+                                                                        {owner && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setInspectionTargetRoom(room);
+                                                                                    setInspectPhone(user?.phone || '');
+                                                                                }}
+                                                                                style={{
+                                                                                    display: 'block',
+                                                                                    marginTop: 6,
+                                                                                    fontSize: 11,
+                                                                                    fontWeight: 700,
+                                                                                    color: '#059669',
+                                                                                    background: 'transparent',
+                                                                                    border: 'none',
+                                                                                    cursor: 'pointer',
+                                                                                    padding: 0,
+                                                                                    textDecoration: 'underline'
+                                                                                }}
+                                                                            >
+                                                                                ＋ Gửi yêu cầu Inspector
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+
+                                                            {/* Actions */}
+                                                            <td style={{ padding: '14px 16px', verticalAlign: 'top', textAlign: 'right' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
                                                                     <button
                                                                         type="button"
-                                                                        className="hx-photo-action-btn"
-                                                                        style={{ width: 'fit-content', background: '#ECFDF5', borderColor: '#A7F3D0', color: '#047857' }}
-                                                                        onClick={() => {
-                                                                            setInspectionTargetRoom(room);
-                                                                            setInspectPhone(user?.phone || '');
+                                                                        onClick={() => { setDetailModalRoom(room); setDetailImageIndex(0); }}
+                                                                        style={{
+                                                                            padding: '6px 12px',
+                                                                            borderRadius: 8,
+                                                                            background: '#0F172A',
+                                                                            color: '#FFFFFF',
+                                                                            border: 'none',
+                                                                            fontSize: 12,
+                                                                            fontWeight: 700,
+                                                                            cursor: 'pointer',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: 4
                                                                         }}
                                                                     >
-                                                                        <ShieldCheck size={13} /> Gửi yêu cầu Inspector
+                                                                        <Eye size={13} /> Chi tiết
                                                                     </button>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div className="hx-actions" style={{ margin: 0 }}>
-                                                                {owner && (
-                                                                    <>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="hx-link"
-                                                                            onClick={() => { setSelected(room); setMode('room'); }}
-                                                                        >
-                                                                            Sửa phòng
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="hx-link"
-                                                                            disabled={busy || room.status !== 'AVAILABLE'}
-                                                                            onClick={() => void action(() => request(`/rooms/${room.id}/confirm-availability`, { method: 'POST' }), 'Đã xác nhận phòng vẫn còn trống.')}
-                                                                        >
-                                                                            Xác nhận còn phòng
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                                {staff && (
-                                                                    <>
-                                                                        <button className="hx-link" onClick={() => { setSelected(room); setMode('inspection'); }}>
-                                                                            Ghi kiểm tra
-                                                                        </button>
-                                                                        <select
-                                                                            aria-label={`Trạng thái ${room.roomName}`}
-                                                                            disabled={busy}
-                                                                            value={room.status}
-                                                                            onChange={e => void action(() => request(`/rooms/${room.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: e.target.value }) }), 'Đã cập nhật trạng thái phòng.')}
-                                                                        >
-                                                                            <option value="PENDING">Chờ duyệt</option>
-                                                                            <option value="AVAILABLE">Cho thuê</option>
-                                                                            <option value="RENTED">Đã thuê</option>
-                                                                            <option value="MAINTENANCE">Bảo trì</option>
-                                                                        </select>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
 
-                                {loading ? (
-                                    <p role="status" style={{ textAlign: 'center', padding: '24px 0', color: '#64748B' }}>Đang tải danh sách phòng...</p>
-                                ) : rooms.length === 0 && (
-                                    <div className="hx-empty" style={{ margin: '32px 0' }}>
-                                        <Home size={38} color="#10B981" />
-                                        <h3>Bạn chưa có phòng trọ nào</h3>
-                                        <p>Hãy tạo thông tin Nhà trọ / Khu trọ trước, sau đó đăng các phòng trọ của bạn.</p>
-                                        <button className="hx-button" onClick={() => setMode('rental')}>
-                                            Tạo nhà trọ đầu tiên
-                                        </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => { setSelected(room); setMode('room'); }}
+                                                                        style={{
+                                                                            padding: '6px 10px',
+                                                                            borderRadius: 8,
+                                                                            background: '#FFFFFF',
+                                                                            color: '#334155',
+                                                                            border: '1px solid #CBD5E1',
+                                                                            fontSize: 12,
+                                                                            fontWeight: 650,
+                                                                            cursor: 'pointer',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: 4
+                                                                        }}
+                                                                    >
+                                                                        <Edit3 size={12} /> Sửa
+                                                                    </button>
+
+                                                                    <Link
+                                                                        to={`/room/${room.id}`}
+                                                                        style={{
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: 8,
+                                                                            background: '#F1F5F9',
+                                                                            color: '#475569',
+                                                                            border: '1px solid #E2E8F0',
+                                                                            fontSize: 12,
+                                                                            textDecoration: 'none',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                        }}
+                                                                        title="Xem trang hiển thị công khai của phòng này"
+                                                                    >
+                                                                        <ExternalLink size={13} />
+                                                                    </Link>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDeleteRoom(room)}
+                                                                        style={{
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: 8,
+                                                                            background: '#FFF1F2',
+                                                                            color: '#E11D48',
+                                                                            border: '1px solid #FECDD3',
+                                                                            cursor: 'pointer',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                        }}
+                                                                        title="Xóa phòng này"
+                                                                    >
+                                                                        <Trash2 size={13} />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    /* CONTENT: GRID CARDS VIEW */
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+                                        {filteredRooms.map((room) => {
+                                            const hasVerified = Boolean(room.availabilityConfirmedAt);
+                                            const roomBookings = getBookingsForRoom(room);
+                                            const statusCfg = getStatusConfig(room.status);
+
+                                            return (
+                                                <div
+                                                    key={room.id}
+                                                    style={{
+                                                        background: '#FFFFFF',
+                                                        border: '1px solid #E2E8F0',
+                                                        borderRadius: 18,
+                                                        overflow: 'hidden',
+                                                        boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                >
+                                                    {/* Card Image */}
+                                                    <div style={{ position: 'relative', height: 180, background: '#F1F5F9', overflow: 'hidden' }}>
+                                                        <img
+                                                            src={room.images && room.images[0] ? room.images[0] : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'}
+                                                            alt={room.roomName}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                        {/* Status badge */}
+                                                        <div style={{ position: 'absolute', top: 10, left: 10 }}>
+                                                            <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 750, background: statusCfg.bg, color: statusCfg.text, border: `1px solid ${statusCfg.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                                                {statusCfg.label}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Verified badge */}
+                                                        {hasVerified && (
+                                                            <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                                                                <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 750, background: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                                                    <CheckCircle2 size={12} color="#059669" /> Đã kiểm định
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Card Body */}
+                                                    <div style={{ padding: 18, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                                        <div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                                                                <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.3 }}>
+                                                                    {room.roomName}
+                                                                </h3>
+                                                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                                    <span style={{ fontSize: 17, fontWeight: 850, color: '#059669' }}>
+                                                                        {money(room.price)}
+                                                                    </span>
+                                                                    <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>/tháng</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <p style={{ fontSize: 12, fontWeight: 650, color: '#059669', margin: '0 0 6px' }}>
+                                                                {room.rentalTitle}
+                                                            </p>
+
+                                                            <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                <MapPin size={13} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {room.address}
+                                                                </span>
+                                                            </p>
+
+                                                            {/* Specs row */}
+                                                            <div style={{ display: 'flex', gap: 10, padding: '8px 12px', background: '#F8FAFC', borderRadius: 10, border: '1px solid #E2E8F0', marginBottom: 12, fontSize: 12 }}>
+                                                                <div>📐 <strong>{room.sizeM2 ?? 30} m²</strong></div>
+                                                                <div>👥 <strong>Tối đa {room.maxPeople ?? 2} người</strong></div>
+                                                            </div>
+
+                                                            {/* Costs quick breakdown */}
+                                                            <div style={{ fontSize: 11, color: '#475569', display: 'flex', justifyContent: 'space-between', marginBottom: 12, borderTop: '1px dashed #E2E8F0', paddingTop: 8 }}>
+                                                                <span>⚡ Điện: {room.costs?.electricityPerKwh ? `${money(room.costs.electricityPerKwh)}/kWh` : '3.500 đ'}</span>
+                                                                <span>💧 Nước: {room.costs?.waterPerM3 ? `${money(room.costs.waterPerM3)}/m³` : '20.000 đ'}</span>
+                                                                <span>🔒 Cọc: {money(room.costs?.deposit || room.price)}</span>
+                                                            </div>
+
+                                                            {/* Bookings alert */}
+                                                            {roomBookings.length > 0 && (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E', fontSize: 11, fontWeight: 700, marginBottom: 12 }}>
+                                                                    <Calendar size={13} /> Có {roomBookings.length} lịch hẹn xem phòng sắp tới
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Action Buttons */}
+                                                        <div style={{ display: 'flex', gap: 8, paddingTop: 12, borderTop: '1px solid #F1F5F9' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setDetailModalRoom(room); setDetailImageIndex(0); }}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    padding: '8px 12px',
+                                                                    borderRadius: 10,
+                                                                    background: '#0F172A',
+                                                                    color: '#FFFFFF',
+                                                                    border: 'none',
+                                                                    fontSize: 12,
+                                                                    fontWeight: 700,
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: 6,
+                                                                }}
+                                                            >
+                                                                <Eye size={13} /> Chi tiết
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setSelected(room); setMode('room'); }}
+                                                                style={{
+                                                                    padding: '8px 14px',
+                                                                    borderRadius: 10,
+                                                                    background: '#FFFFFF',
+                                                                    color: '#334155',
+                                                                    border: '1px solid #CBD5E1',
+                                                                    fontSize: 12,
+                                                                    fontWeight: 650,
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                            >
+                                                                Sửa
+                                                            </button>
+
+                                                            <Link
+                                                                to={`/room/${room.id}`}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    borderRadius: 10,
+                                                                    background: '#F1F5F9',
+                                                                    color: '#475569',
+                                                                    border: '1px solid #E2E8F0',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    textDecoration: 'none'
+                                                                }}
+                                                                title="Xem trang công khai"
+                                                            >
+                                                                <ExternalLink size={14} />
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
 
-                                <div className="hx-actions" style={{ justifyContent: 'space-between', marginTop: 24 }}>
-                                    <button className="hx-outline-button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                                        Trang trước
-                                    </button>
-                                    <span style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>
-                                        Trang {page} / {Math.max(1, pages)}
-                                    </span>
-                                    <button className="hx-outline-button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-                                        Trang sau
-                                    </button>
-                                </div>
+                                {filteredRooms.length === 0 && !loading && (
+                                    <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748B' }}>
+                                        <Home size={38} style={{ color: '#CBD5E1', margin: '0 auto 12px' }} />
+                                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', margin: '0 0 6px' }}>
+                                            Không tìm thấy phòng nào phù hợp bộ lọc
+                                        </h3>
+                                        <p style={{ fontSize: 13, margin: '0 0 16px' }}>
+                                            Thử xóa từ khóa tìm kiếm hoặc đặt lại các bộ lọc trạng thái.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setSearchKeyword(''); setStatusFilter('ALL'); setInspectionFilter('ALL'); setRentalFilter('ALL'); }}
+                                            style={{ padding: '8px 16px', borderRadius: 10, background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#334155', fontWeight: 650, fontSize: 12, cursor: 'pointer' }}
+                                        >
+                                            Đặt lại bộ lọc
+                                        </button>
+                                    </div>
+                                )}
                             </section>
                         )}
 
                         {/* ── TAB 2: THÊM / QUẢN LÝ NHÀ TRỌ ── */}
                         {mode === 'rental' && (
-                            <form className="hx-panel" onSubmit={createRental}>
-                                <div className="hx-form-section-header">
-                                    <div>
-                                        <h2 style={{ margin: 0 }}>Thêm Nhà trọ / Tòa nhà mới</h2>
-                                        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>
-                                            Khu trọ hoặc tòa nhà là địa điểm chính chứa các phòng trọ riêng lẻ của bạn.
+                            <section style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                {/* Danh sách các nhà trọ hiện có */}
+                                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: 24, boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
+                                    <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 6px' }}>
+                                        Danh sách các Nhà trọ / Khu trọ đang quản lý ({rentals.length})
+                                    </h2>
+                                    <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 18px' }}>
+                                        Mỗi nhà trọ là địa điểm chứa các phòng trọ của bạn.
+                                    </p>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
+                                        {rentals.map((r) => {
+                                            const roomCount = rooms.filter(room => room.rentalId === r.id).length;
+                                            return (
+                                                <div key={r.id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 16 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                                                        <div>
+                                                            <h4 style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                                                                {r.title}
+                                                            </h4>
+                                                            <p style={{ fontSize: 12, color: '#64748B', margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                <MapPin size={12} style={{ color: '#94A3B8' }} />
+                                                                {r.address || 'Địa chỉ đang cập nhật'}, {r.district || 'Bình Thạnh'}, {r.city || 'TP.HCM'}
+                                                            </p>
+                                                        </div>
+                                                        <span style={{ padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 750, background: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
+                                                            {roomCount} phòng
+                                                        </span>
+                                                    </div>
+
+                                                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setRentalFilter(r.id);
+                                                                setMode('list');
+                                                            }}
+                                                            style={{ padding: '6px 12px', borderRadius: 8, background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#059669', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                                                        >
+                                                            Xem các phòng thuộc khu trọ này ↗
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Form tạo nhà trọ mới */}
+                                <form onSubmit={createRental} style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 20, padding: 24, boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
+                                    <div style={{ marginBottom: 20 }}>
+                                        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                                            ＋ Thêm Nhà trọ / Tòa nhà mới
+                                        </h2>
+                                        <p style={{ fontSize: 13, color: '#64748B', margin: '4px 0 0' }}>
+                                            Khai báo địa chỉ và tên tòa nhà để phân loại danh mục các phòng trọ của bạn.
                                         </p>
                                     </div>
-                                </div>
 
-                                <div className="hx-grid-2">
-                                    <div className="hx-field-group">
-                                        <label htmlFor="rental-title">Tên nhà trọ / Tòa nhà (*)</label>
-                                        <input id="rental-title" name="title" required maxLength={255} placeholder="VD: Tòa nhà Căn hộ Dịch vụ HexHouse D2" />
+                                    <div className="hx-grid-2">
+                                        <div className="hx-field-group">
+                                            <label htmlFor="rental-title">Tên nhà trọ / Tòa nhà (*)</label>
+                                            <input id="rental-title" name="title" required maxLength={255} placeholder="VD: Tòa nhà Căn hộ Dịch vụ HexHouse D2" />
+                                        </div>
+
+                                        <div className="hx-field-group">
+                                            <label htmlFor="rental-address">Địa chỉ cụ thể (*)</label>
+                                            <input id="rental-address" name="address" required placeholder="VD: 152/24 Nguyễn Gia Trí (D2 cũ)" />
+                                        </div>
+
+                                        <div className="hx-field-group">
+                                            <label htmlFor="rental-district">Quận / Huyện (*)</label>
+                                            <input id="rental-district" name="district" required placeholder="VD: Quận Bình Thạnh" />
+                                        </div>
+
+                                        <div className="hx-field-group">
+                                            <label htmlFor="rental-city">Tỉnh / Thành phố (*)</label>
+                                            <input id="rental-city" name="city" required placeholder="VD: Hồ Chí Minh" />
+                                        </div>
+
+                                        <div className="hx-field-group" style={{ gridColumn: '1 / -1' }}>
+                                            <label htmlFor="rental-desc">Mô tả tổng quan về khu trọ</label>
+                                            <textarea id="rental-desc" name="description" placeholder="Vị trí thuận tiện, an ninh 24/7, gần trường đại học nào, tiện ích chung..." />
+                                        </div>
                                     </div>
 
-                                    <div className="hx-field-group">
-                                        <label htmlFor="rental-address">Địa chỉ cụ thể (*)</label>
-                                        <input id="rental-address" name="address" required placeholder="VD: 152/24 Nguyễn Gia Trí (D2 cũ)" />
+                                    <div className="hx-actions" style={{ marginTop: 24 }}>
+                                        <button className="hx-button" disabled={busy} type="submit">
+                                            Lưu Nhà trọ mới
+                                        </button>
+                                        <button type="button" className="hx-outline-button" onClick={() => setMode('list')}>
+                                            Hủy bỏ
+                                        </button>
                                     </div>
-
-                                    <div className="hx-field-group">
-                                        <label htmlFor="rental-district">Quận / Huyện (*)</label>
-                                        <input id="rental-district" name="district" required placeholder="VD: Quận Bình Thạnh" />
-                                    </div>
-
-                                    <div className="hx-field-group">
-                                        <label htmlFor="rental-city">Tỉnh / Thành phố (*)</label>
-                                        <input id="rental-city" name="city" required placeholder="VD: Hồ Chí Minh" />
-                                    </div>
-
-                                    <div className="hx-field-group" style={{ gridColumn: '1 / -1' }}>
-                                        <label htmlFor="rental-desc">Mô tả tổng quan về khu trọ</label>
-                                        <textarea id="rental-desc" name="description" placeholder="Vị trí thuận tiện, an ninh 24/7, gần trường đại học nào, tiện ích chung..." />
-                                    </div>
-                                </div>
-
-                                <div className="hx-actions" style={{ marginTop: 24 }}>
-                                    <button className="hx-button" disabled={busy} type="submit">
-                                        Lưu Nhà trọ mới
-                                    </button>
-                                    <button type="button" className="hx-outline-button" onClick={() => setMode('list')}>
-                                        Hủy bỏ
-                                    </button>
-                                </div>
-                            </form>
+                                </form>
+                            </section>
                         )}
 
-                        {/* ── TAB 3: THÊM / CẬP NHẬT PHÒNG (GIAO DIỆN HOÀN TOÀN MỚI) ── */}
+                        {/* ── TAB 3: THÊM / CẬP NHẬT PHÒNG TRỌ (GIAO DIỆN FORM ĐẦY ĐỦ) ── */}
                         {mode === 'room' && (
                             <form key={selected?.id ?? 'new'} onSubmit={handleSaveRoom}>
                                 {/* Banner callout when no rentals exist */}
@@ -1045,7 +1833,7 @@ export function WorkspacePage() {
                                     </div>
                                 </div>
 
-                                {/* SECTION 4: BỘ KHUNG ẢNH CHUẨN KIỂM ĐỊNH & ẢNH GỢI Ý MẪU (THEO YÊU CẦU CỦA USER) */}
+                                {/* SECTION 4: BỘ KHUNG ẢNH CHUẨN KIỂM ĐỊNH */}
                                 <div className="hx-form-section">
                                     <div className="hx-form-section-header">
                                         <div>
@@ -1075,7 +1863,6 @@ export function WorkspacePage() {
                                                         {slot.desc}
                                                     </p>
 
-                                                    {/* Preview Container */}
                                                     <div className="hx-photo-preview">
                                                         {val ? (
                                                             <img
@@ -1093,7 +1880,6 @@ export function WorkspacePage() {
                                                         )}
                                                     </div>
 
-                                                    {/* URL Input */}
                                                     <input
                                                         type="url"
                                                         value={val}
@@ -1102,7 +1888,6 @@ export function WorkspacePage() {
                                                         style={{ fontSize: 12, padding: '8px 10px' }}
                                                     />
 
-                                                    {/* Quick Actions */}
                                                     <div className="hx-photo-actions">
                                                         <button
                                                             type="button"
@@ -1133,7 +1918,7 @@ export function WorkspacePage() {
                                         })}
                                     </div>
 
-                                    {/* BỔ SUNG CÁC KHUNG THÊM ẢNH (EXTRA PHOTOS) */}
+                                    {/* Khung ảnh bổ sung */}
                                     <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px dashed #E2E8F0' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                                             <div>
@@ -1141,7 +1926,7 @@ export function WorkspacePage() {
                                                     📸 Khung thêm ảnh bổ sung (Hành lang, bãi xe, thang máy, view ban công...)
                                                 </h4>
                                                 <span style={{ fontSize: 12, color: '#64748B' }}>
-                                                    Thêm bao nhiêu ảnh tùy thích để người thuê thấy toàn diện không gian sống
+                                                    Thêm ảnh để người thuê thấy toàn diện không gian sống
                                                 </span>
                                             </div>
                                             <button
@@ -1243,7 +2028,7 @@ export function WorkspacePage() {
                                     </div>
                                 </div>
 
-                                {/* SECTION 6: GỬI YÊU CẦU INSPECTOR (CHỨC NĂNG DÀNH CHO LANDLORD) */}
+                                {/* SECTION 6: GỬI YÊU CẦU INSPECTOR */}
                                 <div className="hx-inspector-callout">
                                     <div className="hx-inspector-callout-icon">
                                         <ShieldCheck size={28} />
@@ -1423,10 +2208,443 @@ export function WorkspacePage() {
                 )}
             </main>
 
+            {/* ── MODAL: CHI TIẾT PHÒNG TRỌ TOÀN DIỆN (NỀN TRẮNG SANG TRỌNG) ── */}
+            {detailModalRoom && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 16,
+                    }}
+                    onClick={() => setDetailModalRoom(null)}
+                >
+                    <div
+                        style={{
+                            position: 'relative',
+                            width: '100%',
+                            maxWidth: 860,
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: 24,
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            maxHeight: '92vh',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '16px 24px',
+                                borderBottom: '1px solid #E2E8F0',
+                                backgroundColor: '#F8FAFC',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Eye size={18} />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                                        {detailModalRoom.roomName}
+                                    </h3>
+                                    <span style={{ fontSize: 12, color: '#64748B' }}>
+                                        Mã phòng: <strong style={{ color: '#0F172A' }}>{detailModalRoom.id}</strong> · {detailModalRoom.rentalTitle}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 750, background: getStatusConfig(detailModalRoom.status).bg, color: getStatusConfig(detailModalRoom.status).text, border: `1px solid ${getStatusConfig(detailModalRoom.status).border}` }}>
+                                    {getStatusConfig(detailModalRoom.status).label}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailModalRoom(null)}
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        padding: 6,
+                                        borderRadius: 8,
+                                        cursor: 'pointer',
+                                        color: '#64748B',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div style={{ padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            {/* 1. PHOTO GALLERY (5 GÓC CHUẨN KIỂM ĐỊNH) */}
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 750, color: '#065F46', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Camera size={14} style={{ color: '#059669' }} /> Hình ảnh căn phòng ({detailModalRoom.images?.length || 1} ảnh)
+                                    </span>
+                                    <span style={{ fontSize: 11, color: '#64748B' }}>
+                                        Góc {detailImageIndex + 1}/{detailModalRoom.images?.length || 1}: {INSPECTION_SLOTS[detailImageIndex]?.title || 'Ảnh chi tiết'}
+                                    </span>
+                                </div>
+
+                                {/* Main Active Image */}
+                                <div style={{ width: '100%', height: 320, borderRadius: 16, overflow: 'hidden', background: '#0F172A', position: 'relative' }}>
+                                    <img
+                                        src={detailModalRoom.images && detailModalRoom.images[detailImageIndex] ? detailModalRoom.images[detailImageIndex] : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200'}
+                                        alt={detailModalRoom.roomName}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                    <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, backdropFilter: 'blur(4px)' }}>
+                                        {INSPECTION_SLOTS[detailImageIndex]?.title || `Ảnh số ${detailImageIndex + 1}`}
+                                    </div>
+                                </div>
+
+                                {/* Thumbnails Strip */}
+                                {detailModalRoom.images && detailModalRoom.images.length > 1 && (
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                                        {detailModalRoom.images.map((url, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => setDetailImageIndex(idx)}
+                                                style={{
+                                                    width: 76,
+                                                    height: 56,
+                                                    borderRadius: 8,
+                                                    overflow: 'hidden',
+                                                    flexShrink: 0,
+                                                    cursor: 'pointer',
+                                                    border: detailImageIndex === idx ? '2px solid #10B981' : '1px solid #CBD5E1',
+                                                    opacity: detailImageIndex === idx ? 1 : 0.65,
+                                                    transition: 'all 0.2s',
+                                                }}
+                                            >
+                                                <img src={url} alt={`Thumb ${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 2. CÁC THÔNG SỐ CƠ BẢN CỦA PHÒNG */}
+                            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: 18 }}>
+                                <h4 style={{ fontSize: 13, fontWeight: 750, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>
+                                    Thông số kỹ thuật & Vị trí phòng
+                                </h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+                                    <div>
+                                        <span style={{ fontSize: 12, color: '#64748B' }}>Diện tích sử dụng:</span>
+                                        <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{detailModalRoom.sizeM2 ?? 30} m²</div>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: 12, color: '#64748B' }}>Sức chứa tối đa:</span>
+                                        <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{detailModalRoom.maxPeople ?? 2} người</div>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: 12, color: '#64748B' }}>Loại mô hình:</span>
+                                        <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
+                                            {detailModalRoom.roomType === 'STUDIO' ? 'Studio khép kín' : detailModalRoom.roomType === 'PRIVATE' ? 'Phòng riêng' : detailModalRoom.roomType === 'SHARED' ? 'Ở ghép KTX' : 'Căn hộ mini'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: 12, color: '#64748B' }}>Chu kỳ thanh toán:</span>
+                                        <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
+                                            {detailModalRoom.costs?.paymentCycleMonths ?? 1} tháng / lần
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #E2E8F0', fontSize: 13, color: '#334155', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <MapPin size={15} style={{ color: '#059669', flexShrink: 0 }} />
+                                    <span><strong>Địa chỉ:</strong> {detailModalRoom.address}, {detailModalRoom.district}, {detailModalRoom.city}</span>
+                                </div>
+                                {detailModalRoom.description && (
+                                    <div style={{ marginTop: 10, fontSize: 13, color: '#475569', lineHeight: 1.6, background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                                        <strong>Mô tả:</strong> {detailModalRoom.description}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 3. BẢNG PHỤ PHÍ & CHI PHÍ MINH BẠCH 100% */}
+                            <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 16, padding: 18 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                    <h4 style={{ fontSize: 13, fontWeight: 750, color: '#065F46', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Banknote size={15} /> Bảng kê chi phí minh bạch 100% (Cam kết không phí ẩn)
+                                    </h4>
+                                    <span style={{ padding: '3px 8px', borderRadius: 6, background: '#D1FAE5', color: '#065F46', fontSize: 11, fontWeight: 750 }}>
+                                        Chuẩn HexRoom Verified
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                                    <div style={{ background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                                        <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>Giá thuê phòng niêm yết</span>
+                                        <strong style={{ fontSize: 17, color: '#059669' }}>{money(detailModalRoom.price)}/tháng</strong>
+                                    </div>
+                                    <div style={{ background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                                        <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>Tiền đặt cọc</span>
+                                        <strong style={{ fontSize: 15, color: '#0F172A' }}>{money(detailModalRoom.costs?.deposit || detailModalRoom.price)}</strong>
+                                    </div>
+                                    <div style={{ background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                                        <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>⚡ Giá điện (công tơ riêng)</span>
+                                        <strong style={{ fontSize: 15, color: '#0F172A' }}>{money(detailModalRoom.costs?.electricityPerKwh || 3500)} /kWh</strong>
+                                    </div>
+                                    <div style={{ background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                                        <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>💧 Giá nước sinh hoạt</span>
+                                        <strong style={{ fontSize: 15, color: '#0F172A' }}>{money(detailModalRoom.costs?.waterPerM3 || 20000)} /m³</strong>
+                                    </div>
+                                    <div style={{ background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                                        <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>📶 Phí Internet / Wifi</span>
+                                        <strong style={{ fontSize: 14, color: '#0F172A' }}>{money(detailModalRoom.costs?.internetMonthly || 100000)} /tháng</strong>
+                                    </div>
+                                    <div style={{ background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                                        <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>🛵 Phí giữ xe máy</span>
+                                        <strong style={{ fontSize: 14, color: '#0F172A' }}>{money(detailModalRoom.costs?.parkingMonthly || 120000)} /xe/tháng</strong>
+                                    </div>
+                                    <div style={{ background: '#FFFFFF', padding: 12, borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                                        <span style={{ fontSize: 11, color: '#64748B', display: 'block' }}>🧹 Dịch vụ & Quản lý</span>
+                                        <strong style={{ fontSize: 14, color: '#0F172A' }}>{money(detailModalRoom.costs?.serviceMonthly || 100000)} /phòng/tháng</strong>
+                                    </div>
+                                </div>
+
+                                {detailModalRoom.costs?.feeNotes && (
+                                    <p style={{ fontSize: 12, color: '#065F46', margin: '10px 0 0', lineHeight: 1.5 }}>
+                                        💡 <strong>Ghi chú phụ phí:</strong> {detailModalRoom.costs.feeNotes}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* 4. TIỆN NGHI CÓ SẴN */}
+                            {detailModalRoom.amenities && detailModalRoom.amenities.length > 0 && (
+                                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: 18 }}>
+                                    <h4 style={{ fontSize: 13, fontWeight: 750, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>
+                                        Danh sách tiện nghi đã trang bị ({detailModalRoom.amenities.length})
+                                    </h4>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        {detailModalRoom.amenities.map(amenity => (
+                                            <span
+                                                key={amenity}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    padding: '6px 14px',
+                                                    borderRadius: 999,
+                                                    background: '#F1F5F9',
+                                                    border: '1px solid #E2E8F0',
+                                                    color: '#334155',
+                                                    fontSize: 12,
+                                                    fontWeight: 650,
+                                                }}
+                                            >
+                                                <CheckCircle2 size={13} style={{ color: '#059669' }} /> {amenity}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 5. NỘI QUY PHÒNG */}
+                            {detailModalRoom.costs?.houseRules && (
+                                <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 16, padding: 18, fontSize: 13, color: '#92400E' }}>
+                                    <h4 style={{ fontSize: 13, fontWeight: 750, margin: '0 0 6px', textTransform: 'uppercase' }}>
+                                        Nội quy & Giờ giấc phòng trọ
+                                    </h4>
+                                    <p style={{ margin: 0, lineHeight: 1.6 }}>{detailModalRoom.costs.houseRules}</p>
+                                </div>
+                            )}
+
+                            {/* 6. LỊCH HẸN XEM PHÒNG TỪ KHÁCH THUÊ */}
+                            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: 18 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                    <h4 style={{ fontSize: 13, fontWeight: 750, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Calendar size={15} style={{ color: '#059669' }} /> Danh sách khách đặt lịch hẹn xem phòng ({getBookingsForRoom(detailModalRoom).length})
+                                    </h4>
+                                </div>
+
+                                {getBookingsForRoom(detailModalRoom).length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {getBookingsForRoom(detailModalRoom).map((bk) => (
+                                            <div
+                                                key={bk.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '12px 16px',
+                                                    borderRadius: 12,
+                                                    background: '#F8FAFC',
+                                                    border: '1px solid #E2E8F0',
+                                                    flexWrap: 'wrap',
+                                                    gap: 10
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ fontWeight: 750, fontSize: 13, color: '#0F172A' }}>
+                                                        Khách hẹn: {bk.landlordName || 'Khách thuê HexRoom'}
+                                                    </div>
+                                                    <div style={{ fontSize: 12, color: '#065F46', fontWeight: 650, marginTop: 2 }}>
+                                                        📅 Ngày hẹn: <strong>{bk.appointmentDate || 'Sắp tới'}</strong> {bk.appointmentTime && `(${bk.appointmentTime})`}
+                                                    </div>
+                                                    {bk.notes && (
+                                                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                                                            Ghi chú: {bk.notes}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    {bk.landlordPhone && (
+                                                        <a
+                                                            href={`tel:${bk.landlordPhone}`}
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: 8,
+                                                                background: '#ECFDF5',
+                                                                color: '#059669',
+                                                                fontSize: 12,
+                                                                fontWeight: 700,
+                                                                textDecoration: 'none',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 4
+                                                            }}
+                                                        >
+                                                            <Phone size={12} /> {bk.landlordPhone}
+                                                        </a>
+                                                    )}
+                                                    <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: bk.status === 'completed' ? '#EFF6FF' : '#ECFDF5', color: bk.status === 'completed' ? '#1E40AF' : '#065F46' }}>
+                                                        {bk.status === 'completed' ? '✅ Đã xem' : '🟢 Sắp tới'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 10, textAlign: 'center', fontSize: 12, color: '#64748B' }}>
+                                        Chưa có lịch hẹn xem phòng nào cho căn phòng này. Khách thuê đặt lịch sẽ tự động hiển thị tại đây.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div
+                            style={{
+                                padding: '16px 24px',
+                                borderTop: '1px solid #E2E8F0',
+                                backgroundColor: '#F8FAFC',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: 10,
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Đổi trạng thái:</span>
+                                <select
+                                    value={detailModalRoom.status}
+                                    onChange={e => handleQuickStatusChange(detailModalRoom.id, e.target.value)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        background: '#FFFFFF',
+                                        border: '1px solid #CBD5E1',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="AVAILABLE">🟢 Đang cho thuê</option>
+                                    <option value="RENTED">🔵 Đã có người thuê</option>
+                                    <option value="MAINTENANCE">🟠 Đang bảo trì</option>
+                                    <option value="PENDING">🟡 Chờ duyệt</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Link
+                                    to={`/room/${detailModalRoom.id}`}
+                                    style={{
+                                        padding: '9px 16px',
+                                        borderRadius: 10,
+                                        background: '#FFFFFF',
+                                        color: '#334155',
+                                        border: '1px solid #CBD5E1',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    Xem trên web ↗
+                                </Link>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const r = detailModalRoom;
+                                        setDetailModalRoom(null);
+                                        setSelected(r);
+                                        setMode('room');
+                                    }}
+                                    style={{
+                                        padding: '9px 18px',
+                                        borderRadius: 10,
+                                        background: '#10B981',
+                                        color: '#FFFFFF',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                                    }}
+                                >
+                                    Chỉnh sửa thông tin
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailModalRoom(null)}
+                                    style={{
+                                        padding: '9px 20px',
+                                        borderRadius: 10,
+                                        background: '#0F172A',
+                                        color: '#FFFFFF',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Đóng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── MODAL: YÊU CẦU INSPECTOR RIÊNG CHO PHÒNG (KHI BẤM TỪ DANH SÁCH) ── */}
             {inspectionTargetRoom && (
                 <div className="hx-modal-backdrop" onClick={() => setInspectionTargetRoom(null)}>
-                    <div className="hx-modal" onClick={e => e.stopPropagation()}>
+                    <div className="hx-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560, background: '#FFFFFF', borderRadius: 20 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '1px solid #F1F5F9', paddingBottom: 14 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

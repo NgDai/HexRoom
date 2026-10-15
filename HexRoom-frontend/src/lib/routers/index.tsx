@@ -20,6 +20,8 @@ import { VipPlansPage, VipManagementPage } from '@/app/features/vip';
 import { BlogListPage, BlogDetailPage } from '@/app/features/blog';
 
 /* Lazy-loaded chunks – admin/moderator/rental-mgmt only loaded when visited */
+const InspectorPortalPage = lazy(() => import('@/app/features/hexroom/InspectorPortalPage').then((m) => ({ default: m.InspectorPortalPage })));
+const AdminPortalPage = lazy(() => import('@/app/features/hexroom/AdminPortalPage').then((m) => ({ default: m.AdminPortalPage })));
 const BookingHistoryPage = lazy(() => import('@/app/features/booking-history').then((m) => ({ default: m.BookingHistoryPage })));
 const FavoritesPage = lazy(() => import('@/app/features/favorites').then((m) => ({ default: m.default })));
 const LayoutRentalManagements = lazy(() => import('@/app/layouts/layout_rentalManagements/Layout_rentalManagements').then((m) => ({ default: m.default })));
@@ -64,6 +66,8 @@ const routes = [
     { path: '/how-it-works', element: <HowItWorksPage /> },
     { path: '/workspace', element: <ProtectedRoute><WorkspacePage /></ProtectedRoute> },
     { path: '/post-room', element: <ProtectedRoute><WorkspacePage /></ProtectedRoute> },
+    { path: '/inspector', element: <Suspense fallback={<PageLoader />}><InspectorPortalPage /></Suspense> },
+    { path: '/admin-portal', element: <Suspense fallback={<PageLoader />}><AdminPortalPage /></Suspense> },
     {
         path: '/',
         loader: () => redirect('/home'),

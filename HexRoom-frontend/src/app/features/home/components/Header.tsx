@@ -16,7 +16,9 @@ export function Header({ onLogin, onRegister }: { onLogin?: () => void; onRegist
             <NavLink to="/rooms">Tìm phòng</NavLink>
             <NavLink to="/roommate">Tìm bạn ở ghép</NavLink>
             <NavLink to="/how-it-works">Cách HexRoom kiểm tra</NavLink>
-            <NavLink to="/history">Lịch sử đặt phòng</NavLink>
+            <NavLink to="/history">Lịch hẹn xem phòng</NavLink>
+            <NavLink to="/inspector">Cổng Inspector</NavLink>
+            <NavLink to="/admin-portal">Quản trị Admin</NavLink>
             {user && ['LANDLORD', 'ADMIN', 'MODERATOR'].includes(user.role ?? '') && <NavLink to="/workspace">Quản lý phòng</NavLink>}
             <NavLink to="/workspace?mode=room" style={{ color: '#059669', fontWeight: 750, background: '#ECFDF5', padding: '6px 14px', borderRadius: '999px', border: '1px solid #A7F3D0' }}>
                 ＋ Đăng phòng trọ

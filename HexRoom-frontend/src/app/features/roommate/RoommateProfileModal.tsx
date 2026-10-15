@@ -12,6 +12,7 @@ import {
     Shield,
     Eye,
     UtensilsCrossed,
+    AlertTriangle,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/ImageWithFallback';
 import { getRoommateProfileRequest, type RoommatePublicProfile } from '@/lib/api';
@@ -27,46 +28,21 @@ function boolLabel(val: boolean | null | undefined): string {
     return '—';
 }
 
-
-
-function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
+function InfoCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
     if (value === null || value === undefined || value === '' || value === '—') return null;
     return (
-        <div className="flex items-start gap-3 py-2">
-            <Icon className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <div className="min-w-0">
-                <span className="text-xs text-muted-foreground">{label}</span>
-                <p className="text-sm font-medium text-foreground">{value}</p>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/70 shadow-xs hover:border-emerald-500/40 transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/40">
+                <Icon className="w-4 h-4" />
             </div>
-        </div>
-    );
-}
-
-function TagList({ items, color = 'primary' }: { items: string[]; color?: string }) {
-    if (!items.length) return null;
-    return (
-        <div className="flex flex-wrap gap-1.5">
-            {items.map((t) => (
-                <span
-                    key={t}
-                    className={`text-xs px-2.5 py-1 rounded-full font-medium bg-${color}/10 text-${color}`}
-                    style={{
-                        backgroundColor: color === 'primary' ? 'hsl(var(--primary) / 0.10)' : 'hsl(var(--accent) / 0.15)',
-                        color: color === 'primary' ? 'hsl(var(--primary))' : 'hsl(var(--accent-foreground))',
-                    }}
-                >
-                    {t}
+            <div className="min-w-0 flex-1">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wide leading-tight">
+                    {label}
                 </span>
-            ))}
-        </div>
-    );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <div className="space-y-1">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{title}</h4>
-            {children}
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate mt-0.5">
+                    {value}
+                </p>
+            </div>
         </div>
     );
 }
@@ -154,7 +130,7 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity"
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity"
                 onClick={onClose}
             />
 
@@ -164,19 +140,21 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                 onClick={onClose}
             >
                 <div
-                    className="relative w-full max-w-lg bg-background border border-border shadow-2xl rounded-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 fade-in duration-200"
+                    className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 fade-in duration-200 overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
                         <div className="flex items-center gap-2">
-                            <Eye className="w-5 h-5 text-primary" />
-                            <h3 className="font-heading text-lg font-semibold text-foreground">Hồ sơ</h3>
+                            <Eye className="w-5 h-5 text-emerald-600" />
+                            <h3 className="font-heading text-lg font-bold text-slate-900 dark:text-white">
+                                Hồ sơ người tìm ở ghép
+                            </h3>
                         </div>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="p-2 rounded-xl hover:bg-muted transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             title="Đóng"
                         >
                             <X className="w-5 h-5" />
@@ -187,102 +165,113 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                     <div className="flex-1 overflow-y-auto">
                         {loading && (
                             <div className="flex items-center justify-center py-20">
-                                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
                             </div>
                         )}
 
                         {error && (
                             <div className="p-6 text-center">
-                                <p className="text-destructive text-sm">{error}</p>
+                                <p className="text-rose-500 text-sm font-semibold">{error}</p>
                             </div>
                         )}
 
                         {profile && !loading && (
                             <div className="space-y-6 p-6">
-                                {/* Profile header */}
-                                <div className="text-center space-y-3">
-                                    <ImageWithFallback
-                                        src={U?.avatarUrl || AVATAR_PLACEHOLDER}
-                                        alt={U?.fullName || ''}
-                                        className="w-24 h-24 rounded-full object-cover border-4 border-primary/20 mx-auto shadow-lg"
-                                    />
+                                {/* Profile Header Card */}
+                                <div className="text-center space-y-2.5">
+                                    <div className="relative inline-block mx-auto">
+                                        <ImageWithFallback
+                                            src={U?.avatarUrl || AVATAR_PLACEHOLDER}
+                                            alt={U?.fullName || ''}
+                                            className="w-24 h-24 rounded-full object-cover border-3 border-emerald-500 ring-4 ring-emerald-100 dark:ring-emerald-950 shadow-md"
+                                        />
+                                    </div>
                                     <div>
-                                        <h2 className="font-heading text-xl font-bold text-foreground">
+                                        <h2 className="font-heading text-xl font-extrabold text-slate-900 dark:text-white">
                                             {U?.fullName}
                                         </h2>
                                         {U?.gender && (
-                                            <span className="text-sm text-muted-foreground">{U.gender}</span>
+                                            <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                                {U.gender}
+                                            </span>
                                         )}
                                     </div>
 
                                     {matchScore != null && (
-                                        <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                                            <Sparkles className="w-4 h-4" />
-                                            {matchScore}% phù hợp
+                                        <div>
+                                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/60 font-bold text-xs shadow-xs">
+                                                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                                                {matchScore}% phù hợp với bạn
+                                            </span>
                                         </div>
                                     )}
 
                                     {U?.memberSince && (
-                                        <p className="text-xs text-muted-foreground">
+                                        <p className="text-xs text-slate-400">
                                             Thành viên từ {new Date(U.memberSince).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}
                                         </p>
                                     )}
                                 </div>
 
-                                <hr className="border-border" />
+                                <div className="h-px bg-slate-200 dark:bg-slate-800" />
 
-                                {/* Lifestyle */}
+                                {/* Lifestyle Section */}
                                 {L && (
-                                    <Section title="Phong cách sống">
-                                        <div className="grid grid-cols-1 gap-0.5">
-                                            <InfoRow icon={Cigarette} label="Hút thuốc" value={boolLabel(L.smoking)} />
-                                            <InfoRow icon={PawPrint} label="Nuôi thú cưng" value={boolLabel(L.pets_allowed)} />
-                                            <InfoRow icon={Moon} label="Lịch ngủ" value={L.sleep_schedule} />
-                                            <InfoRow icon={UserCheck} label="Mức độ giao tiếp" value={L.social_level} />
-                                            <InfoRow icon={Shield} label="Sạch sẽ" value={L.cleanliness} />
-                                            <InfoRow icon={Volume2} label="Chịu ồn" value={L.noise_tolerance} />
-                                            <InfoRow icon={Users} label="Khách đến chơi" value={L.guest_frequency} />
-                                            <InfoRow icon={UtensilsCrossed} label="Nấu ăn" value={L.cooking_frequency} />
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                            <UserCheck className="w-4 h-4 text-emerald-600" /> Phong cách sống & Thói quen
                                         </div>
 
-                                        {/* ★ Interests – highlighted */}
+                                        {/* 2-Column Grid of Distinct Cards */}
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <InfoCard icon={Cigarette} label="Hút thuốc" value={boolLabel(L.smoking)} />
+                                            <InfoCard icon={PawPrint} label="Nuôi thú cưng" value={boolLabel(L.pets_allowed)} />
+                                            <InfoCard icon={Moon} label="Lịch ngủ" value={L.sleep_schedule} />
+                                            <InfoCard icon={UserCheck} label="Giao tiếp" value={L.social_level} />
+                                            <InfoCard icon={Shield} label="Sạch sẽ" value={L.cleanliness} />
+                                            <InfoCard icon={Volume2} label="Chịu ồn" value={L.noise_tolerance} />
+                                            <InfoCard icon={Users} label="Khách đến chơi" value={L.guest_frequency} />
+                                            <InfoCard icon={UtensilsCrossed} label="Nấu ăn" value={L.cooking_frequency} />
+                                        </div>
+
+                                        {/* Interests – Highlighted Card with Crisp Badges */}
                                         {L.interests.length > 0 && (
-                                            <div className="mt-4 p-3 rounded-xl bg-blue-50/80 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-800/30">
-                                                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 block mb-2">★ Sở thích</span>
-                                                <TagList items={L.interests} color="primary" />
+                                            <div className="mt-4 p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50">
+                                                <div className="flex items-center gap-1.5 text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-2.5">
+                                                    <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Sở thích cá nhân
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {L.interests.map((tag) => (
+                                                        <span
+                                                            key={tag}
+                                                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-200 border border-blue-200/90 dark:border-blue-800 shadow-xs"
+                                                        >
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
 
-                                        {/* ★ Deal-breakers – highlighted */}
+                                        {/* Deal-breakers – High Contrast Warning Card */}
                                         {L.deal_breakers && (
-                                            <div className="mt-3 p-3 rounded-xl bg-red-50/80 dark:bg-red-900/20 border border-red-200/50 dark:border-red-800/30">
-                                                <span className="text-xs font-semibold text-red-600 dark:text-red-300 block mb-2">★ Điều không chấp nhận</span>
-                                                <p className="text-sm text-red-700 dark:text-red-200">{L.deal_breakers}</p>
+                                            <div className="mt-3 p-3.5 rounded-xl bg-rose-50/80 dark:bg-rose-950/30 border-l-4 border-l-rose-500 border border-rose-200/80 dark:border-rose-900/50">
+                                                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wide mb-1.5">
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Điều không chấp nhận (Deal-breakers)
+                                                </div>
+                                                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-relaxed pl-1">
+                                                    {L.deal_breakers}
+                                                </p>
                                             </div>
                                         )}
-                                    </Section>
+                                    </div>
                                 )}
 
                                 {!L && (
-                                    <Section title="Phong cách sống">
-                                        <p className="text-sm text-muted-foreground italic">Chưa cập nhật thông tin lifestyle.</p>
-                                    </Section>
+                                    <div className="text-center py-6">
+                                        <p className="text-sm text-slate-400 italic">Chưa cập nhật thông tin phong cách sống.</p>
+                                    </div>
                                 )}
-
-                                {/* Preferences – hidden temporarily */}
-                                {/* <hr className="border-border" />
-
-                            {P && (
-                                <Section title="Sở thích tìm phòng">
-                                    ...
-                                </Section>
-                            )}
-
-                            {!P && (
-                                <Section title="Sở thích tìm phòng">
-                                    <p className="text-sm text-muted-foreground italic">Chưa cập nhật sở thích tìm phòng.</p>
-                                </Section>
-                            )} */}
                             </div>
                         )}
                     </div>

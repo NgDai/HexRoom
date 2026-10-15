@@ -38,9 +38,9 @@ export const RATING_LABELS = ['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tố
 export const PROFANITY_WORDS = ['scam', 'lừa đảo', 'tệ hại', 'khốn nạn'];
 
 export const BOOKING_TABS = [
-    { value: 'all', label: 'Tất cả' },
-    { value: 'active', label: 'Đang thuê' },
-    { value: 'completed', label: 'Đã hoàn thành' },
+    { value: 'upcoming', label: '📅 Lịch xem phòng sắp tới' },
+    { value: 'completed', label: '✅ Các phòng đã xem' },
+    { value: 'all', label: 'Tất cả lịch hẹn' },
     { value: 'cancelled', label: 'Đã hủy' },
 ] as const;
 

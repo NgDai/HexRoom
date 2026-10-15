@@ -1,4 +1,4 @@
-export type BookingStatus = 'completed' | 'active' | 'cancelled';
+export type BookingStatus = 'upcoming' | 'pending' | 'completed' | 'active' | 'cancelled';
 
 export type FeedbackStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN';
 
@@ -6,7 +6,6 @@ export interface Booking {
     id: string;
     rentalPeriodId?: string;
     roomId?: string;
-    /** Chủ nhà từ API my-bookings */
     landlordId?: string;
     propertyId?: string;
     roomName?: string;
@@ -14,8 +13,12 @@ export interface Booking {
     propertyImage: string;
     address: string;
     landlordName: string;
+    landlordPhone?: string;
     startDate: string;
     endDate: string;
+    appointmentDate?: string;
+    appointmentTime?: string;
+    bookingType?: 'VIEWING' | 'RESERVE';
     status: BookingStatus;
     hasReview: boolean;
     userRating?: number;
@@ -24,6 +27,9 @@ export interface Booking {
     moderatorNote?: string;
     canReview?: boolean;
     canReviewDisabled?: boolean;
+    viewedDate?: string;
+    price?: number;
+    notes?: string;
 }
 
 export interface ReviewData {

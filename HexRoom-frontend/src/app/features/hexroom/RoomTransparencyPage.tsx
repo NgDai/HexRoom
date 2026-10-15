@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, MapPin, House, ClipboardCheck, Calendar, CheckCircle2,
+    ArrowLeft, Camera, ChevronLeft, ChevronRight, MapPin, House, ClipboardCheck, Calendar, CheckCircle2,
     ShieldCheck, Clock, User, Phone, Mail, FileText, ArrowRight,
-    X, MessageCircle, AlertTriangle, Sparkles, Send, Check
+    X, MessageCircle, AlertTriangle, Sparkles, Send, Check, Maximize,
+    LayoutGrid, Layers, Square
 } from 'lucide-react';
 import { Header, Footer } from '../home/components';
 import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
@@ -11,6 +12,7 @@ import { useAuth } from '@/app/context/useAuth';
 import { useChatBox } from '@/app/context/useChatBox';
 import { request, money, inspectionCategories, inspectionStatuses, type ApiRoom, type Inspection, type RoomCosts } from '@/lib/hexroom-api';
 import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
+import { getRoomLandlordAndInspection } from '@/lib/room-landlord-data';
 import { createRentalRequest, type RentalRequest } from '@/app/features/rentalManagement/requests/requests-storage';
 import type { Booking } from '@/app/features/booking-history/types';
 
@@ -37,7 +39,25 @@ export function RoomTransparencyPage() {
     const [electricity, setElectricity] = useState(0);
     const [water, setWater] = useState(0);
 
-    // Booking modal state
+    // Booking modal & Lightbox state
+    const [selectedImageIdx, setSelectedImageIdx] = useState(0);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [galleryViewMode, setGalleryViewMode] = useState<'mosaic' | 'grid' | 'single'>('mosaic');
+
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setLightboxOpen(false);
+            } else if (e.key === 'ArrowLeft') {
+                setSelectedImageIdx((prev) => (prev > 0 ? prev - 1 : (room?.images?.length || 1) - 1));
+            } else if (e.key === 'ArrowRight') {
+                setSelectedImageIdx((prev) => (prev < (room?.images?.length || 1) - 1 ? prev + 1 : 0));
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [lightboxOpen, room?.images?.length]);
     const [bookingModalOpen, setBookingModalOpen] = useState(false);
     const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
     const [bookingType, setBookingType] = useState<'VIEWING' | 'RESERVE'>('VIEWING');
@@ -57,6 +77,37 @@ export function RoomTransparencyPage() {
     const [agreeTerms, setAgreeTerms] = useState(true);
     const [confirmedBookingId, setConfirmedBookingId] = useState('');
     const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+
+    // Landlord meta & chat modal state
+    const landlordMeta = room ? getRoomLandlordAndInspection(room).landlord : null;
+    const landlordPhone = landlordMeta?.phone || (room as any)?.landlordPhone || '0908 123 456';
+    const landlordName = landlordMeta?.fullName || 'Chủ trọ HexRoom';
+
+    const [chatModalOpen, setChatModalOpen] = useState(false);
+    const [chatMessages, setChatMessages] = useState<Array<{ id: string; sender: 'user' | 'landlord'; text: string; time: string }>>([]);
+    const [chatInputText, setChatInputText] = useState('');
+    const [chatPhoneInput, setChatPhoneInput] = useState(user?.phone || '');
+
+    const handleSendMessage = (textToSend: string) => {
+        if (!textToSend.trim()) return;
+        const userMsg = {
+            id: `msg-${Date.now()}`,
+            sender: 'user' as const,
+            text: textToSend.trim(),
+            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        };
+        setChatMessages((prev) => [...prev, userMsg]);
+
+        setTimeout(() => {
+            const replyMsg = {
+                id: `msg-reply-${Date.now()}`,
+                sender: 'landlord' as const,
+                text: `Dạ tôi đã nhận được tin nhắn! Tôi sẽ gọi hoặc liên hệ lại với bạn qua SĐT ${chatPhoneInput || tenantPhone || user?.phone || 'của bạn'} trong ít phút nhé!`,
+                time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            };
+            setChatMessages((prev) => [...prev, replyMsg]);
+        }, 800);
+    };
 
     useEffect(() => {
         if (user) {
@@ -170,12 +221,18 @@ export function RoomTransparencyPage() {
             propertyName: room.rentalTitle || 'Tòa nhà HexRoom',
             propertyImage: room.images?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
             address: [room.address, room.district, room.city].filter(Boolean).join(', '),
-            landlordName: 'Chủ nhà HexRoom',
+            landlordName: landlordName || 'Chủ trọ HexRoom',
+            landlordPhone: landlordPhone || '0908 123 456',
             startDate: bookingDate,
             endDate: new Date(Date.now() + Number(leaseMonths) * 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
-            status: 'active',
+            appointmentDate: bookingDate,
+            appointmentTime: bookingTimeSlot,
+            bookingType: bookingType, // 'VIEWING'
+            status: 'upcoming',
+            price: room.price,
+            notes: tenantNotes || 'Khách hẹn xem phòng trực tiếp.',
             hasReview: false,
-            canReview: true,
+            canReview: false,
         };
 
         const existingRaw = localStorage.getItem('hexroom_local_bookings');
@@ -253,32 +310,260 @@ export function RoomTransparencyPage() {
                             />
                         </div>
 
-                        {/* Gallery */}
-                        <div className="hx-gallery">
-                            {room.images.length ? (
-                                room.images.map((url) => (
-                                    <img
-                                        key={url}
-                                        src={url}
-                                        alt={`Ảnh do chủ trọ cung cấp: ${room.roomName}`}
-                                        onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80';
-                                        }}
-                                    />
-                                ))
-                            ) : (
-                                <div className="hx-empty" style={{ width: '100%' }}>
-                                    <House />Chủ trọ chưa cung cấp ảnh
-                                </div>
-                            )}
-                        </div>
-                        <p style={{ fontSize: 12, color: '#70806b' }}>
-                            Ảnh do chủ trọ cung cấp · Ảnh kiểm tra thực tế đối chiếu được hiển thị riêng trong hồ sơ bên dưới.
-                        </p>
-
                         <div className="hx-detail-grid">
-                            {/* Left column: Information & Inspection Checklist */}
-                            <div>
+                            {/* Left column: Ảnh phóng to làm chủ thể chính + Thông tin căn phòng + Hồ sơ kiểm định */}
+                            <div className="hx-detail-main-col">
+                                {/* ── PHÓNG TO ẢNH VÀ ĐẶT BÊN TRÁI LÀM CHỦ THỂ CHÍNH ── */}
+                                <div className="hx-showcase-gallery">
+                                    {room.images.length > 0 ? (
+                                        <>
+                                            {/* Topbar: Tiêu đề ảnh & Bộ chuyển chế độ xem */}
+                                            <div className="hx-showcase-topbar">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                        <Camera size={15} style={{ color: '#10B981' }} /> {room.images.length} Ảnh thực tế
+                                                    </span>
+                                                    <span style={{ fontSize: 12, background: 'rgba(16, 185, 129, 0.12)', color: '#059669', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
+                                                        Đã đối chiếu
+                                                    </span>
+                                                </div>
+
+                                                {/* View Switcher Pills */}
+                                                <div className="hx-showcase-view-switch">
+                                                    <button
+                                                        type="button"
+                                                        className={`hx-showcase-view-btn ${galleryViewMode === 'mosaic' ? 'active' : ''}`}
+                                                        onClick={() => setGalleryViewMode('mosaic')}
+                                                        title="Xem dạng ghép ảnh (1 lớn + 2 nhỏ)"
+                                                    >
+                                                        <Layers size={13} /> Ghép ảnh
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`hx-showcase-view-btn ${galleryViewMode === 'grid' ? 'active' : ''}`}
+                                                        onClick={() => setGalleryViewMode('grid')}
+                                                        title="Xem dạng lưới 4 ảnh cùng lúc"
+                                                    >
+                                                        <LayoutGrid size={13} /> Lưới 4 ảnh
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`hx-showcase-view-btn ${galleryViewMode === 'single' ? 'active' : ''}`}
+                                                        onClick={() => setGalleryViewMode('single')}
+                                                        title="Xem 1 ảnh lớn toàn màn"
+                                                    >
+                                                        <Square size={13} /> 1 ảnh lớn
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* ── BỐ CỤC 1: MOSAIC (GHÉP ẢNH HIỆN ĐẠI) ── */}
+                                            {galleryViewMode === 'mosaic' && (
+                                                <div className="hx-gallery-mosaic">
+                                                    {/* Ảnh chính lớn bên trái */}
+                                                    <div
+                                                        className="hx-gallery-mosaic-main"
+                                                        onClick={() => {
+                                                            setSelectedImageIdx(0);
+                                                            setLightboxOpen(true);
+                                                        }}
+                                                        title="Nhấn để phóng to ảnh chính"
+                                                    >
+                                                        <img
+                                                            src={room.images[0]}
+                                                            alt={`Ảnh chính: ${room.roomName || room.rentalTitle}`}
+                                                            onError={(e) => {
+                                                                const el = e.currentTarget as HTMLImageElement;
+                                                                el.onerror = null;
+                                                                el.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
+                                                            }}
+                                                        />
+                                                        <span className="hx-showcase-badge-verified">
+                                                            <ShieldCheck size={14} /> 100% Ảnh thực tế đối chiếu
+                                                        </span>
+                                                        <div className="hx-showcase-zoom-hint">
+                                                            <Maximize size={13} /> Nhấn xem chi tiết
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Ảnh phụ thứ 1 bên phải (trên) */}
+                                                    {room.images.length > 1 && (
+                                                        <div
+                                                            className="hx-gallery-mosaic-sub"
+                                                            onClick={() => {
+                                                                setSelectedImageIdx(1);
+                                                                setLightboxOpen(true);
+                                                            }}
+                                                            title="Nhấn để phóng to ảnh 2"
+                                                        >
+                                                            <img
+                                                                src={room.images[1]}
+                                                                alt={`Ảnh phòng 2: ${room.roomName || room.rentalTitle}`}
+                                                                onError={(e) => {
+                                                                    const el = e.currentTarget as HTMLImageElement;
+                                                                    el.onerror = null;
+                                                                    el.src = 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&auto=format&fit=crop&q=80';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {/* Ảnh phụ thứ 2 bên phải (dưới) */}
+                                                    {room.images.length > 2 && (
+                                                        <div
+                                                            className="hx-gallery-mosaic-sub"
+                                                            onClick={() => {
+                                                                setSelectedImageIdx(2);
+                                                                setLightboxOpen(true);
+                                                            }}
+                                                            title="Nhấn để phóng to ảnh 3"
+                                                        >
+                                                            <img
+                                                                src={room.images[2]}
+                                                                alt={`Ảnh phòng 3: ${room.roomName || room.rentalTitle}`}
+                                                                onError={(e) => {
+                                                                    const el = e.currentTarget as HTMLImageElement;
+                                                                    el.onerror = null;
+                                                                    el.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&auto=format&fit=crop&q=80';
+                                                                }}
+                                                            />
+                                                            {room.images.length > 3 && (
+                                                                <div className="hx-gallery-more-overlay">
+                                                                    <span style={{ fontSize: 20 }}>+{room.images.length - 3}</span>
+                                                                    <span style={{ fontSize: 12 }}>ảnh khác</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Nút Xem tất cả N ảnh */}
+                                                    <button
+                                                        type="button"
+                                                        className="hx-gallery-all-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setLightboxOpen(true);
+                                                        }}
+                                                    >
+                                                        <Camera size={14} /> Xem tất cả {room.images.length} ảnh
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* ── BỐ CỤC 2: GRID (LƯỚI 4 ẢNH CÙNG LÚC) ── */}
+                                            {galleryViewMode === 'grid' && (
+                                                <div className="hx-gallery-grid2x2">
+                                                    {room.images.slice(0, 4).map((imgUrl, idx) => (
+                                                        <div
+                                                            key={'grid-img-' + idx}
+                                                            className="hx-gallery-grid-item"
+                                                            onClick={() => {
+                                                                setSelectedImageIdx(idx);
+                                                                setLightboxOpen(true);
+                                                            }}
+                                                            title={`Nhấn xem ảnh ${idx + 1}`}
+                                                        >
+                                                            <img
+                                                                src={imgUrl}
+                                                                alt={`Ảnh ${idx + 1}: ${room.roomName || room.rentalTitle}`}
+                                                                onError={(e) => {
+                                                                    const el = e.currentTarget as HTMLImageElement;
+                                                                    el.onerror = null;
+                                                                    el.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
+                                                                }}
+                                                            />
+                                                            {idx === 0 && (
+                                                                <span className="hx-showcase-badge-verified">
+                                                                    <ShieldCheck size={13} /> Ảnh chính
+                                                                </span>
+                                                            )}
+                                                            {idx === 3 && room.images.length > 4 && (
+                                                                <div className="hx-gallery-more-overlay">
+                                                                    <span style={{ fontSize: 20 }}>+{room.images.length - 4}</span>
+                                                                    <span style={{ fontSize: 12 }}>ảnh khác</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+
+                                                    {/* Nút Xem tất cả N ảnh */}
+                                                    <button
+                                                        type="button"
+                                                        className="hx-gallery-all-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setLightboxOpen(true);
+                                                        }}
+                                                    >
+                                                        <Camera size={14} /> Xem tất cả {room.images.length} ảnh
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* ── BỐ CỤC 3: SINGLE (1 ẢNH LỚN TIÊU ĐIỂM) ── */}
+                                            {galleryViewMode === 'single' && (
+                                                <div
+                                                    className="hx-gallery-single"
+                                                    onClick={() => setLightboxOpen(true)}
+                                                    title="Nhấn để phóng to xem chi tiết ảnh"
+                                                >
+                                                    <img
+                                                        src={room.images[selectedImageIdx] || room.images[0]}
+                                                        alt={`Ảnh phòng: ${room.roomName || room.rentalTitle}`}
+                                                        onError={(e) => {
+                                                            const el = e.currentTarget as HTMLImageElement;
+                                                            el.onerror = null;
+                                                            el.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
+                                                        }}
+                                                    />
+                                                    <span className="hx-showcase-badge-verified">
+                                                        <ShieldCheck size={14} /> 100% Ảnh thực tế đối chiếu
+                                                    </span>
+                                                    <span className="hx-showcase-badge-count">
+                                                        <Camera size={13} /> {selectedImageIdx + 1} / {room.images.length} ảnh
+                                                    </span>
+                                                    <div className="hx-showcase-zoom-hint">
+                                                        <Maximize size={13} /> Nhấn xem chi tiết
+                                                    </div>
+
+                                                    {room.images.length > 1 && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                className="hx-showcase-nav-btn prev"
+                                                                aria-label="Ảnh trước"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedImageIdx((prev) => (prev > 0 ? prev - 1 : room.images.length - 1));
+                                                                }}
+                                                            >
+                                                                <ChevronLeft size={22} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="hx-showcase-nav-btn next"
+                                                                aria-label="Ảnh tiếp"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedImageIdx((prev) => (prev < room.images.length - 1 ? prev + 1 : 0));
+                                                                }}
+                                                            >
+                                                                <ChevronRight size={22} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+
+
+                                        </>
+                                    ) : (
+                                        <div className="hx-empty" style={{ width: '100%', height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <House size={28} /> Chủ trọ chưa cung cấp ảnh
+                                        </div>
+                                    )}
+                                    
+                                </div>
                                 <section className="hx-panel">
                                     <h2>Thông tin căn phòng</h2>
                                     <div className="hx-actions">
@@ -369,8 +654,8 @@ export function RoomTransparencyPage() {
                                 </section>
                             </div>
 
-                            {/* Right column: Costs & HexRoom Booking CTA */}
-                            <aside>
+                            {/* Right column: Giá thuê hằng tháng & Các chi phí (Sticky Sidebar) */}
+                            <aside className="hx-detail-sidebar">
                                 <section className="hx-panel">
                                     <span className="hx-eyebrow">GIÁ THUÊ HẰNG THÁNG</span>
                                     <div className="hx-calc-result">{money(room.price)}</div>
@@ -435,17 +720,30 @@ export function RoomTransparencyPage() {
                                             <button
                                                 type="button"
                                                 className="hx-outline-button"
-                                                style={{ flex: 1, padding: '10px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                                                onClick={handleContactLandlord}
+                                                style={{ flex: 1, padding: '10px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 650 }}
+                                                onClick={() => {
+                                                    if (chatMessages.length === 0 && room) {
+                                                        setChatMessages([
+                                                            {
+                                                                id: 'msg-init',
+                                                                sender: 'landlord',
+                                                                text: `Chào bạn! Tôi là ${landlordName}. Bạn quan tâm đến phòng "${room.roomName || room.rentalTitle}" cần hỏi thêm thông tin hay muốn xem phòng cứ nhắn tôi nhé!`,
+                                                                time: 'Vừa xong'
+                                                            }
+                                                        ]);
+                                                    }
+                                                    setChatModalOpen(true);
+                                                }}
                                             >
                                                 <MessageCircle size={15} color="#10B981" /> Nhắn tin chủ trọ
                                             </button>
                                             <a
-                                                href="tel:0987654321"
+                                                href={`tel:${landlordPhone}`}
                                                 className="hx-outline-button"
-                                                style={{ padding: '10px 14px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none' }}
+                                                style={{ padding: '10px 14px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', fontWeight: 700 }}
+                                                title={`Gọi ngay cho ${landlordName}`}
                                             >
-                                                <Phone size={15} color="#10B981" /> Gọi điện
+                                                <Phone size={15} color="#10B981" /> {landlordPhone}
                                             </a>
                                         </div>
 
@@ -834,7 +1132,7 @@ export function RoomTransparencyPage() {
                                         }}
                                         style={{ minWidth: 200 }}
                                     >
-                                        <FileText size={16} /> Xem trong Lịch sử đặt phòng
+                                        <Calendar size={16} /> Xem lịch hẹn xem phòng
                                     </button>
 
                                     <button
@@ -858,6 +1156,284 @@ export function RoomTransparencyPage() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            
+            {/* ── CHAT VỚI CHỦ TRỌ MODAL ── */}
+            {chatModalOpen && room && (
+                <div className="hx-modal-backdrop" onClick={() => setChatModalOpen(false)}>
+                    <div
+                        className="hx-modal"
+                        style={{ maxWidth: 520, borderRadius: 20, overflow: 'hidden', padding: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div style={{ background: '#0F172A', color: '#fff', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ position: 'relative', width: 44, height: 44 }}>
+                                    <img
+                                        src={landlordMeta?.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&auto=format&fit=crop&q=80'}
+                                        alt={landlordName}
+                                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #10B981' }}
+                                    />
+                                    <span style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, background: '#10B981', borderRadius: '50%', border: '2px solid #0F172A' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        {landlordName}
+                                        <span style={{ fontSize: 11, background: 'rgba(16, 185, 129, 0.2)', color: '#34D399', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
+                                            Trực tuyến
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
+                                        {room.roomName || room.rentalTitle} · {landlordPhone}
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setChatModalOpen(false)}
+                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Quick Question Chips */}
+                        <div style={{ background: '#F8FAFC', padding: '10px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: 8, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                            {[
+                                'Phòng này còn trống không ạ?',
+                                'Giá điện nước tính thế nào ạ?',
+                                'Cuối tuần em qua xem phòng được không?',
+                                'Phòng có chỗ để xe máy không ạ?'
+                            ].map((quickText) => (
+                                <button
+                                    key={quickText}
+                                    type="button"
+                                    onClick={() => handleSendMessage(quickText)}
+                                    style={{
+                                        background: '#FFFFFF',
+                                        border: '1px solid #CBD5E1',
+                                        borderRadius: 999,
+                                        padding: '5px 12px',
+                                        fontSize: 12,
+                                        color: '#334155',
+                                        cursor: 'pointer',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    💬 {quickText}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Messages Stream */}
+                        <div style={{ padding: '16px 20px', height: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, background: '#FFFFFF' }}>
+                            {chatMessages.map((msg) => (
+                                <div
+                                    key={msg.id}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start'
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            maxWidth: '82%',
+                                            padding: '10px 14px',
+                                            borderRadius: msg.sender === 'user' ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
+                                            background: msg.sender === 'user' ? '#10B981' : '#F1F5F9',
+                                            color: msg.sender === 'user' ? '#FFFFFF' : '#0F172A',
+                                            fontSize: 13.5,
+                                            lineHeight: 1.5,
+                                            boxShadow: msg.sender === 'user' ? '0 2px 6px rgba(16, 185, 129, 0.25)' : 'none'
+                                        }}
+                                    >
+                                        {msg.text}
+                                    </div>
+                                    <span style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>
+                                        {msg.time}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Input Box */}
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (chatInputText.trim()) {
+                                    handleSendMessage(chatInputText.trim());
+                                    setChatInputText('');
+                                }
+                            }}
+                            style={{ padding: '14px 16px', background: '#F8FAFC', borderTop: '1px solid #E2E8F0' }}
+                        >
+                            {!user && (
+                                <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>SĐT nhận phản hồi:</span>
+                                    <input
+                                        type="tel"
+                                        placeholder="Nhập SĐT để chủ trọ gọi/Zalo lại..."
+                                        value={chatPhoneInput}
+                                        onChange={(e) => setChatPhoneInput(e.target.value)}
+                                        style={{
+                                            flex: 1,
+                                            padding: '6px 10px',
+                                            fontSize: 12,
+                                            borderRadius: 8,
+                                            border: '1px solid #CBD5E1',
+                                            background: '#FFFFFF'
+                                        }}
+                                    />
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <input
+                                    type="text"
+                                    placeholder="Nhập tin nhắn cho chủ trọ..."
+                                    value={chatInputText}
+                                    onChange={(e) => setChatInputText(e.target.value)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '10px 14px',
+                                        fontSize: 13.5,
+                                        borderRadius: 12,
+                                        border: '1.5px solid #CBD5E1',
+                                        outline: 'none',
+                                        background: '#FFFFFF'
+                                    }}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!chatInputText.trim()}
+                                    style={{
+                                        background: chatInputText.trim() ? '#10B981' : '#CBD5E1',
+                                        color: '#FFFFFF',
+                                        border: 'none',
+                                        borderRadius: 12,
+                                        padding: '0 18px',
+                                        cursor: chatInputText.trim() ? 'pointer' : 'default',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 6,
+                                        fontWeight: 700,
+                                        fontSize: 13
+                                    }}
+                                >
+                                    <Send size={15} /> Gửi
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            
+            {/* ── LIGHTBOX PHÓNG TO CHI TIẾT ẢNH ── */}
+            {lightboxOpen && room && room.images && room.images.length > 0 && (
+                <div
+                    className="hx-lightbox-backdrop"
+                    onClick={() => setLightboxOpen(false)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Xem chi tiết ảnh phòng"
+                >
+                    {/* Top bar */}
+                    <div className="hx-lightbox-header" onClick={(e) => e.stopPropagation()}>
+                        <div className="hx-lightbox-info">
+                            <span className="hx-lightbox-badge">
+                                <ShieldCheck size={14} /> 100% Ảnh thực tế HexRoom kiểm định
+                            </span>
+                            <span className="hx-lightbox-title">
+                                {room.roomName || room.rentalTitle}
+                            </span>
+                        </div>
+                        <div className="hx-lightbox-actions">
+                            <span className="hx-lightbox-counter">
+                                <Camera size={14} /> {selectedImageIdx + 1} / {room.images.length} ảnh
+                            </span>
+                            <button
+                                type="button"
+                                className="hx-lightbox-close-btn"
+                                onClick={() => setLightboxOpen(false)}
+                                aria-label="Đóng xem chi tiết ảnh"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Center image stage */}
+                    <div className="hx-lightbox-stage" onClick={(e) => e.stopPropagation()}>
+                        {room.images.length > 1 && (
+                            <button
+                                type="button"
+                                className="hx-lightbox-nav prev"
+                                aria-label="Ảnh trước"
+                                onClick={() => setSelectedImageIdx((prev) => (prev > 0 ? prev - 1 : room.images.length - 1))}
+                            >
+                                <ChevronLeft size={34} />
+                            </button>
+                        )}
+
+                        <div className="hx-lightbox-main-wrap">
+                            <img
+                                src={room.images[selectedImageIdx] || room.images[0]}
+                                alt={`Chi tiết ảnh phòng: ${room.roomName || room.rentalTitle}`}
+                                className="hx-lightbox-img"
+                                onError={(e) => {
+                                    const el = e.currentTarget as HTMLImageElement;
+                                    el.onerror = null;
+                                    el.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
+                                }}
+                            />
+                        </div>
+
+                        {room.images.length > 1 && (
+                            <button
+                                type="button"
+                                className="hx-lightbox-nav next"
+                                aria-label="Ảnh tiếp"
+                                onClick={() => setSelectedImageIdx((prev) => (prev < room.images.length - 1 ? prev + 1 : 0))}
+                            >
+                                <ChevronRight size={34} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Bottom strip */}
+                    <div className="hx-lightbox-footer" onClick={(e) => e.stopPropagation()}>
+                        {room.images.length > 1 && (
+                            <div className="hx-lightbox-thumbs">
+                                {room.images.map((url, idx) => (
+                                    <button
+                                        key={'lb-thumb-' + url + idx}
+                                        type="button"
+                                        className={`hx-lightbox-thumb-btn ${idx === selectedImageIdx ? 'active' : ''}`}
+                                        onClick={() => setSelectedImageIdx(idx)}
+                                        aria-label={`Xem ảnh ${idx + 1}`}
+                                    >
+                                        <img
+                                            src={url}
+                                            alt={`Thu nhỏ ${idx + 1}`}
+                                            onError={(e) => {
+                                                const el = e.currentTarget as HTMLImageElement;
+                                                el.onerror = null;
+                                                el.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300&auto=format&fit=crop&q=80';
+                                            }}
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="hx-lightbox-hint">
+                            Bấm Esc hoặc click nền đen để đóng · Phím mũi tên ← → chuyển ảnh
+                        </div>
                     </div>
                 </div>
             )}

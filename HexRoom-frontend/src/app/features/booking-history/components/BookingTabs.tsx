@@ -7,19 +7,34 @@ interface BookingTabsProps {
 
 export function BookingTabs({ activeTab, onTabChange }: BookingTabsProps) {
     return (
-        <div className="flex gap-2 mb-6 border-b border-border">
-            {BOOKING_TABS.map((tab) => (
-                <button
-                    key={tab.value}
-                    onClick={() => onTabChange(tab.value)}
-                    className={`px-4 py-3 border-b-2 transition-colors ${activeTab === tab.value
-                            ? 'border-primary text-primary font-medium'
-                            : 'border-transparent text-foreground/60 hover:text-foreground'
-                        }`}
-                >
-                    {tab.label}
-                </button>
-            ))}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '2px solid #E2E8F0', overflowX: 'auto', paddingBottom: 2 }}>
+            {BOOKING_TABS.map((tab) => {
+                const isActive = activeTab === tab.value;
+                return (
+                    <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => onTabChange(tab.value)}
+                        style={{
+                            padding: '10px 18px',
+                            borderBottom: isActive ? '3px solid #10B981' : '3px solid transparent',
+                            color: isActive ? '#059669' : '#64748B',
+                            fontWeight: isActive ? 750 : 600,
+                            fontSize: 14,
+                            background: 'transparent',
+                            borderTop: 'none',
+                            borderLeft: 'none',
+                            borderRight: 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap',
+                            marginBottom: -2,
+                        }}
+                    >
+                        {tab.label}
+                    </button>
+                );
+            })}
         </div>
     );
 }

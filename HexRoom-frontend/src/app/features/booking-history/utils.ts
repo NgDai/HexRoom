@@ -1,4 +1,5 @@
-import type { Booking, BookingStatus, ReportData } from './types';
+import type { Booking, ReportData } from './types';
+import type { BookingTabValue } from './constants';
 
 /** Payload for POST /reports from a rental booking context. */
 export function buildBookingReportPayload(
@@ -18,8 +19,18 @@ export function buildBookingReportPayload(
 
 export function filterBookings(
     bookings: Booking[],
-    filter: 'all' | BookingStatus
+    filter: BookingTabValue
 ): Booking[] {
-    if (filter === 'all') return bookings;
-    return bookings.filter((booking) => booking.status === filter);
+    if (filter === 'upcoming') {
+        return bookings.filter(
+            (b) => b.status === 'upcoming' || b.status === 'active' || b.status === 'pending'
+        );
+    }
+    if (filter === 'completed') {
+        return bookings.filter((b) => b.status === 'completed');
+    }
+    if (filter === 'cancelled') {
+        return bookings.filter((b) => b.status === 'cancelled');
+    }
+    return bookings;
 }
