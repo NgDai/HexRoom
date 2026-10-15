@@ -1339,9 +1339,23 @@ export function RoomsPage() {
                                                         <ShieldCheck size={14} className="text-emerald-600" />
                                                         ĐÃ ĐỐI CHIẾU 4 BƯỚC BỞI HEXROOM INSPECTOR
                                                     </span>
-                                                    {inspection.inspectedDate && (
-                                                        <span className="insp-bar-date">Ngày {inspection.inspectedDate}</span>
-                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+                                                        {inspection.inspectedDate && (
+                                                            <span className="insp-bar-date">Ngày {inspection.inspectedDate}</span>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            className="rooms-book-tour-chip"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setBookingRoom(room);
+                                                                setBookingSuccess(false);
+                                                            }}
+                                                            title="Hẹn lịch xem phòng tận nơi cùng Inspector"
+                                                        >
+                                                            <Calendar size={12} /> Hẹn xem phòng
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div className="insp-checklist-mini-grid">
                                                     <span className="insp-check-item">
@@ -1370,6 +1384,18 @@ export function RoomsPage() {
                                                         <AlertTriangle size={14} className="text-amber-600" />
                                                         CHƯA QUA ĐỐI CHIẾU THỰC ĐỊA (CHỦ NHÀ TỰ KHAI)
                                                     </span>
+                                                    <button
+                                                        type="button"
+                                                        className="rooms-book-tour-chip pending"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setBookingRoom(room);
+                                                            setBookingSuccess(false);
+                                                        }}
+                                                        title="Hẹn lịch xem phòng cùng Inspector đối chiếu"
+                                                    >
+                                                        <Calendar size={12} /> Hẹn xem phòng
+                                                    </button>
                                                 </div>
                                                 <p className="insp-pending-note">
                                                     Thông tin và hình ảnh do chủ phòng tự đăng tải. HexRoom đang xếp lịch cử Inspector đến đo đạc kiểm tra tại chỗ.
@@ -1394,7 +1420,33 @@ export function RoomsPage() {
                                         {/* Description */}
                                         {desc && <p className="room-card-desc">{desc}</p>}
 
-                                        {/* Landlord / Host Profile Section (Prominent, High Contrast & Trustworthy) */}
+                                        {/* Detailed Fee Breakdown Box (Hiển thị khi chọn chế độ Xem chi tiết biểu phí) */}
+                                        {viewMode === 'detailed' && (
+                                            <div className="rooms-detail-breakdown-box">
+                                                <div className="rooms-detail-fee-item">
+                                                    <span>⚡ Điện sinh hoạt</span>
+                                                    <span>{costHighlights.electricity}</span>
+                                                </div>
+                                                <div className="rooms-detail-fee-item">
+                                                    <span>💧 Nước sinh hoạt</span>
+                                                    <span>{costHighlights.water}</span>
+                                                </div>
+                                                <div className="rooms-detail-fee-item">
+                                                    <span>🛡️ Tiền đặt cọc</span>
+                                                    <span>{costHighlights.deposit}</span>
+                                                </div>
+                                                <div className="rooms-detail-fee-item">
+                                                    <span>🛵 Phí gửi xe</span>
+                                                    <span>{costHighlights.parking || 'Miễn phí'}</span>
+                                                </div>
+                                                <div className="rooms-detail-fee-item">
+                                                    <span>🌐 Dịch vụ / Wifi</span>
+                                                    <span>{costHighlights.service || 'Miễn phí'}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Landlord / Host Profile Section */}
                                         <div className="room-card-landlord-container">
                                             <div className="landlord-main-info">
                                                 <div className="landlord-avatar-wrapper">
@@ -1433,45 +1485,9 @@ export function RoomsPage() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            {/* Detailed Fee Breakdown Box */}
-                                            {viewMode === 'detailed' && (
-                                                <div className="rooms-detail-breakdown-box">
-                                                    <div className="rooms-detail-fee-item">
-                                                        <span>⚡ Điện sinh hoạt</span>
-                                                        <span>{costHighlights.electricity}</span>
-                                                    </div>
-                                                    <div className="rooms-detail-fee-item">
-                                                        <span>💧 Nước sinh hoạt</span>
-                                                        <span>{costHighlights.water}</span>
-                                                    </div>
-                                                    <div className="rooms-detail-fee-item">
-                                                        <span>🛡️ Tiền đặt cọc</span>
-                                                        <span>{costHighlights.deposit}</span>
-                                                    </div>
-                                                    <div className="rooms-detail-fee-item">
-                                                        <span>🛵 Phí gửi xe</span>
-                                                        <span>{costHighlights.parking || 'Miễn phí'}</span>
-                                                    </div>
-                                                    <div className="rooms-detail-fee-item">
-                                                        <span>🌐 Dịch vụ / Wifi</span>
-                                                        <span>{costHighlights.service || 'Miễn phí'}</span>
-                                                    </div>
-                                                </div>
-                                            )}
 
+                                            {/* Action Column: Số điện thoại với Xem chi tiết xếp thành một cột */}
                                             <div className="landlord-action-wrapper" onClick={(e) => e.stopPropagation()}>
-                                                <button
-                                                    type="button"
-                                                    className="rooms-book-btn"
-                                                    onClick={() => {
-                                                        setBookingRoom(room);
-                                                        setBookingSuccess(false);
-                                                    }}
-                                                    title="Hẹn lịch xem phòng tận nơi cùng Inspector"
-                                                >
-                                                    <Calendar size={14} />
-                                                    <span>Hẹn xem phòng</span>
-                                                </button>
                                                 <a
                                                     href={`tel:${landlord.phone}`}
                                                     className="btn-call-landlord"
@@ -1485,10 +1501,10 @@ export function RoomsPage() {
                                                     type="button"
                                                     className="btn-view-transparency"
                                                     onClick={() => handleRoomClick(room.id)}
-                                                    title="Xem hồ sơ minh bạch & Báo cáo kiểm định"
+                                                    title="Xem chi tiết hồ sơ minh bạch phòng"
                                                 >
-                                                    Xem minh bạch
-                                                    <ChevronRight size={14} />
+                                                    <span>Xem chi tiết</span>
+                                                    <ChevronRight size={13} />
                                                 </button>
                                             </div>
                                         </div>
