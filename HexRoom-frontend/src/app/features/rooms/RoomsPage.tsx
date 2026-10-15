@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import {
     MapPin, Camera, Search, SlidersHorizontal, ShieldCheck,
     CheckCircle2, Clock, AlertTriangle, Check, Users, Sparkles,
-    ChevronRight, Zap, Phone, X, ChevronDown, ChevronUp, RotateCcw, Filter, Building
+    ChevronRight, Zap, Phone, X, ChevronDown, ChevronUp, RotateCcw, Filter, Building,
+    LayoutGrid, List, Calendar
 } from 'lucide-react';
 import { Header, Footer } from '@/app/features/home/components';
 import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
@@ -17,6 +18,11 @@ import {
     FILTER_SIZE_PRESETS,
     FILTER_AMENITIES,
     FILTER_SORT_OPTIONS,
+    POPULAR_UNIVERSITIES,
+    FILTER_POLICIES,
+    FILTER_TARGET_TENANTS,
+    type UniversityOption,
+    type PolicyFilterItem,
     type PricePresetItem,
     type SizePresetItem,
     type AmenityFilterItem
@@ -117,6 +123,17 @@ export function RoomsPage() {
         return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
     }, [searchParams]);
     const inspectionFromUrl = (searchParams.get('inspection') || 'all') as 'all' | 'verified' | 'pending';
+    const universityFromUrl = searchParams.get('university') || '';
+    const targetTenantFromUrl = searchParams.get('targetTenant') || '';
+    const policiesFromUrl = useMemo(() => {
+        const raw = searchParams.get('policies');
+        return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    }, [searchParams]);
+
+    const [viewMode, setViewMode] = useState<'grid' | 'detailed'>('grid');
+    const [bookingRoom, setBookingRoom] = useState<PublicRoomItem | null>(null);
+    const [bookingSuccess, setBookingSuccess] = useState(false);
+    const [bookingData, setBookingData] = useState({ date: 'tomorrow', timeSlot: '14:00 - 16:00', phone: '', name: '', note: '' });
 
     const [isFilterExpanded, setIsFilterExpanded] = useState(true);
     const [draftMinSize, setDraftMinSize] = useState(minSizeFromUrl != null ? String(minSizeFromUrl) : '');
@@ -208,6 +225,38 @@ export function RoomsPage() {
                 const d = districtFromUrl.toLowerCase();
                 list = list.filter((r) => (r.district || '').toLowerCase().includes(d));
             }
+            if (universityFromUrl) {
+                const uni = POPULAR_UNIVERSITIES.find(u => u.id === universityFromUrl);
+                if (uni) {
+                    const uniTerm = uni.shortName.toLowerCase();
+                    const uniDist = uni.district.toLowerCase();
+                    list = list.filter(r => 
+                        (r.district || '').toLowerCase().includes(uniDist) ||
+                        (r.roomName || '').toLowerCase().includes(uniTerm) ||
+                        (r.description || '').toLowerCase().includes(uniTerm) ||
+                        (r.address || '').toLowerCase().includes(uniDist)
+                    );
+                }
+            }
+
+            if (policiesFromUrl.length > 0) {
+                list = list.filter(r => {
+                    const text = ((r.description || '') + ' ' + (r.amenities || []).map((a: any) => typeof a === 'string' ? a : a.name).join(' ')).toLowerCase();
+                    return policiesFromUrl.every(pId => {
+                        const pol = FILTER_POLICIES.find(p => p.id === pId);
+                        return pol ? text.includes(pol.keyword.toLowerCase()) : true;
+                    });
+                });
+            }
+
+            if (targetTenantFromUrl === 'female_only') {
+                list = list.filter(r => (r.description || '').toLowerCase().includes('nữ'));
+            } else if (targetTenantFromUrl === 'male_only') {
+                list = list.filter(r => (r.description || '').toLowerCase().includes('nam'));
+            } else if (targetTenantFromUrl === 'student') {
+                list = list.filter(r => (r.price <= 4500000) || (r.description || '').toLowerCase().includes('sinh viên'));
+            }
+
             if (amenitiesFromUrl.length > 0) {
                 list = list.filter((r) => {
                     const roomAmenities = (r.amenities || []).map(a => typeof a === 'string' ? a : (a as any).name);
@@ -264,6 +313,30 @@ export function RoomsPage() {
                         const d = districtFromUrl.toLowerCase();
                         items = items.filter((r) => (r.district || '').toLowerCase().includes(d));
                     }
+                    if (universityFromUrl) {
+                        const uni = POPULAR_UNIVERSITIES.find(u => u.id === universityFromUrl);
+                        if (uni) {
+                            const uniDist = uni.district.toLowerCase();
+                            const uniTerm = uni.shortName.toLowerCase();
+                            items = items.filter(r => 
+                                (r.district || '').toLowerCase().includes(uniDist) ||
+                                (r.roomName || '').toLowerCase().includes(uniTerm) ||
+                                (r.description || '').toLowerCase().includes(uniTerm) ||
+                                (r.address || '').toLowerCase().includes(uniDist)
+                            );
+                        }
+                    }
+
+                    if (policiesFromUrl.length > 0) {
+                        items = items.filter(r => {
+                            const text = ((r.description || '') + ' ' + (r.amenities || []).map((a: any) => typeof a === 'string' ? a : a.name).join(' ')).toLowerCase();
+                            return policiesFromUrl.every(pId => {
+                                const pol = FILTER_POLICIES.find(p => p.id === pId);
+                                return pol ? text.includes(pol.keyword.toLowerCase()) : true;
+                            });
+                        });
+                    }
+
                     if (amenitiesFromUrl.length > 0) {
                         items = items.filter((r) => {
                             const rAms = (r.amenities || []).map(a => typeof a === 'string' ? a : a.name);
@@ -282,7 +355,7 @@ export function RoomsPage() {
             })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
-    }, [pageFromUrl, roomTypeFromUrl, minPriceFromUrl, maxPriceFromUrl, minSizeFromUrl, maxSizeFromUrl, sortFromUrl, keywordFromUrl, cityFromUrl, districtFromUrl, amenitiesFromUrl, inspectionFromUrl, reload]);
+    }, [pageFromUrl, roomTypeFromUrl, minPriceFromUrl, maxPriceFromUrl, minSizeFromUrl, maxSizeFromUrl, sortFromUrl, keywordFromUrl, cityFromUrl, districtFromUrl, amenitiesFromUrl, inspectionFromUrl, universityFromUrl, targetTenantFromUrl, policiesFromUrl, reload]);
 
     const updateParams = useCallback(
         (updates: Record<string, string | undefined>) => {
@@ -375,6 +448,35 @@ export function RoomsPage() {
         });
     };
 
+    const handleUniversitySelect = (uniId: string) => {
+        updateParams({
+            university: universityFromUrl === uniId ? undefined : uniId,
+            page: undefined,
+        });
+    };
+
+    const handlePolicyToggle = (policyId: string) => {
+        const next = policiesFromUrl.includes(policyId)
+            ? policiesFromUrl.filter(p => p !== policyId)
+            : [...policiesFromUrl, policyId];
+        updateParams({
+            policies: next.length > 0 ? next.join(',') : undefined,
+            page: undefined,
+        });
+    };
+
+    const handleTargetTenantChange = (target: string) => {
+        updateParams({
+            targetTenant: target || undefined,
+            page: undefined,
+        });
+    };
+
+    const handleConfirmBooking = (e: React.FormEvent) => {
+        e.preventDefault();
+        setBookingSuccess(true);
+    };
+
     const handleAmenityToggle = (name: string) => {
         const next = amenitiesFromUrl.includes(name)
             ? amenitiesFromUrl.filter(a => a !== name)
@@ -462,6 +564,9 @@ export function RoomsPage() {
     if (amenitiesFromUrl.length > 0) activeFilterCount += amenitiesFromUrl.length;
     if (inspectionFromUrl !== 'all') activeFilterCount++;
     if (sortFromUrl !== 'newest') activeFilterCount++;
+    if (universityFromUrl) activeFilterCount++;
+    if (targetTenantFromUrl) activeFilterCount++;
+    if (policiesFromUrl.length > 0) activeFilterCount += policiesFromUrl.length;
 
     const hasActiveFilters = activeFilterCount > 0;
 
@@ -544,6 +649,31 @@ export function RoomsPage() {
                         <Search size={16} /> Tìm phòng
                     </button>
                 </form>
+
+                {/* Quick Universities & Landmarks Strip */}
+                <div className="rooms-uni-bar" aria-label="Lọc nhanh theo trường đại học">
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#047857", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                        🎓 Gần trường ĐH:
+                    </span>
+                    <button
+                        type="button"
+                        className={`rooms-uni-chip ${!universityFromUrl ? "active" : ""}`}
+                        onClick={() => handleUniversitySelect("")}
+                    >
+                        Tất cả trường
+                    </button>
+                    {POPULAR_UNIVERSITIES.map(u => (
+                        <button
+                            key={u.id}
+                            type="button"
+                            className={`rooms-uni-chip ${universityFromUrl === u.id ? "active" : ""}`}
+                            onClick={() => handleUniversitySelect(u.id)}
+                            title={`${u.name} (${u.district}, ${u.city})`}
+                        >
+                            {u.shortName}
+                        </button>
+                    ))}
+                </div>
 
                 {/* Inspection Segment Filter Bar (Core HexRoom USP) */}
                 <div className="rooms-inspection-bar-wrap">
@@ -742,7 +872,53 @@ export function RoomsPage() {
                                 </div>
                             </div>
 
-                            {/* Section 3: Tiện nghi & Nội thất */}
+                            {/* Section 3: Chính sách & An ninh phòng trọ */}
+                            <div>
+                                <div className="rooms-filter-section-title">
+                                    <span>🔑 Chính sách & Quy định phòng trọ:</span>
+                                </div>
+                                <div className="rooms-amenities-grid">
+                                    {FILTER_POLICIES.map((pol) => {
+                                        const isPolActive = policiesFromUrl.includes(pol.id);
+                                        return (
+                                            <button
+                                                key={pol.id}
+                                                type="button"
+                                                className={`rooms-amenity-toggle ${isPolActive ? "active" : ""}`}
+                                                onClick={() => handlePolicyToggle(pol.id)}
+                                            >
+                                                <span>{pol.icon}</span>
+                                                <span>{pol.label}</span>
+                                                {isPolActive && <Check size={14} color="#059669" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Section 4: Đối tượng người thuê */}
+                            <div>
+                                <div className="rooms-filter-section-title">
+                                    <span>👥 Đối tượng người thuê ưu tiên:</span>
+                                </div>
+                                <div className="rooms-price-chips">
+                                    {FILTER_TARGET_TENANTS.map((tg) => {
+                                        const isTargetActive = (targetTenantFromUrl || "") === tg.value;
+                                        return (
+                                            <button
+                                                key={tg.value || "all"}
+                                                type="button"
+                                                className={`rooms-price-chip ${isTargetActive ? "active" : ""}`}
+                                                onClick={() => handleTargetTenantChange(tg.value)}
+                                            >
+                                                {tg.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Section 5: Tiện nghi & Nội thất */}
                             <div>
                                 <div className="rooms-filter-section-title">
                                     <Sparkles size={16} color="#10B981" />
@@ -868,6 +1044,33 @@ export function RoomsPage() {
                             </span>
                         )}
 
+                        {universityFromUrl && (
+                            <span className="rooms-active-tag">
+                                🎓 Gần: {POPULAR_UNIVERSITIES.find(u => u.id === universityFromUrl)?.shortName}
+                                <button className="rooms-active-tag-remove" onClick={() => handleUniversitySelect('')}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {targetTenantFromUrl && (
+                            <span className="rooms-active-tag">
+                                👥 {FILTER_TARGET_TENANTS.find(t => t.value === targetTenantFromUrl)?.label}
+                                <button className="rooms-active-tag-remove" onClick={() => handleTargetTenantChange('')}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        )}
+
+                        {policiesFromUrl.map(pId => (
+                            <span key={pId} className="rooms-active-tag">
+                                {FILTER_POLICIES.find(p => p.id === pId)?.icon} {FILTER_POLICIES.find(p => p.id === pId)?.label}
+                                <button className="rooms-active-tag-remove" onClick={() => handlePolicyToggle(pId)}>
+                                    <X size={14} />
+                                </button>
+                            </span>
+                        ))}
+
                         <button type="button" className="rooms-reset-filters" onClick={handleResetAllFilters}>
                             <RotateCcw size={12} style={{ display: 'inline', marginRight: 4 }} />
                             Xóa tất cả
@@ -884,6 +1087,43 @@ export function RoomsPage() {
                     <SlidersHorizontal size={16} aria-hidden />
                     Tìm hiểu quy trình khảo sát đối chiếu 4 bước tại chỗ của HexRoom
                 </button>
+
+                {/* Detailed Action Bar: Result count + View Mode Switcher */}
+                <div className="rooms-toolbar-action-row">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
+                            {universityFromUrl
+                                ? `Phòng gần ${POPULAR_UNIVERSITIES.find(u => u.id === universityFromUrl)?.name}`
+                                : cityFromUrl
+                                    ? `Phòng trọ tại ${cityFromUrl}`
+                                    : 'Danh sách phòng trọ đã xác thực'}
+                        </span>
+                        <span style={{ fontSize: 13, color: '#059669', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '2px 10px', borderRadius: 999, fontWeight: 700 }}>
+                            {rooms.length} phòng khả dụng
+                        </span>
+                    </div>
+
+                    <div className="rooms-view-toggle-wrap">
+                        <button
+                            type="button"
+                            className={`rooms-view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                            onClick={() => setViewMode('grid')}
+                            title="Xem dạng lưới"
+                        >
+                            <LayoutGrid size={15} />
+                            <span>Dạng lưới</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`rooms-view-toggle-btn ${viewMode === 'detailed' ? 'active' : ''}`}
+                            onClick={() => setViewMode('detailed')}
+                            title="Xem chi tiết biểu phí & kiểm định"
+                        >
+                            <List size={15} />
+                            <span>Chi tiết biểu phí</span>
+                        </button>
+                    </div>
+                </div>
 
                 {/* Stats */}
                 <div className="rooms-stats">
@@ -906,7 +1146,7 @@ export function RoomsPage() {
                         <button className="hx-button" onClick={() => setReload(reload + 1)}>Thử lại</button>
                     </div>
                 ) : loading ? (
-                    <div className="rooms-card-grid">
+                    <div className="rooms-card-grid" style={viewMode === 'detailed' ? { gridTemplateColumns: '1fr' } : undefined}>
                         {[...Array(6)].map((_, i) => (
                             <div key={i} className="room-card-skeleton">
                                 <div className="skel-img" />
@@ -936,7 +1176,7 @@ export function RoomsPage() {
                         </button>
                     </div>
                 ) : (
-                    <div className="rooms-card-grid">
+                    <div className={`rooms-card-grid ${viewMode === 'detailed' ? 'detailed-view' : ''}`}>
                         {rooms.map((room) => {
                             const { landlord, inspection } = getRoomLandlordAndInspection(room);
                             const costHighlights = getRoomCostHighlights(room);
@@ -1193,8 +1433,45 @@ export function RoomsPage() {
                                                     </div>
                                                 </div>
                                             </div>
+                                            {/* Detailed Fee Breakdown Box */}
+                                            {viewMode === 'detailed' && (
+                                                <div className="rooms-detail-breakdown-box">
+                                                    <div className="rooms-detail-fee-item">
+                                                        <span>⚡ Điện sinh hoạt</span>
+                                                        <span>{costHighlights.electricity}</span>
+                                                    </div>
+                                                    <div className="rooms-detail-fee-item">
+                                                        <span>💧 Nước sinh hoạt</span>
+                                                        <span>{costHighlights.water}</span>
+                                                    </div>
+                                                    <div className="rooms-detail-fee-item">
+                                                        <span>🛡️ Tiền đặt cọc</span>
+                                                        <span>{costHighlights.deposit}</span>
+                                                    </div>
+                                                    <div className="rooms-detail-fee-item">
+                                                        <span>🛵 Phí gửi xe</span>
+                                                        <span>{costHighlights.parking || 'Miễn phí'}</span>
+                                                    </div>
+                                                    <div className="rooms-detail-fee-item">
+                                                        <span>🌐 Dịch vụ / Wifi</span>
+                                                        <span>{costHighlights.service || 'Miễn phí'}</span>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             <div className="landlord-action-wrapper" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    type="button"
+                                                    className="rooms-book-btn"
+                                                    onClick={() => {
+                                                        setBookingRoom(room);
+                                                        setBookingSuccess(false);
+                                                    }}
+                                                    title="Hẹn lịch xem phòng tận nơi cùng Inspector"
+                                                >
+                                                    <Calendar size={14} />
+                                                    <span>Hẹn xem phòng</span>
+                                                </button>
                                                 <a
                                                     href={`tel:${landlord.phone}`}
                                                     className="btn-call-landlord"
@@ -1255,7 +1532,134 @@ export function RoomsPage() {
                         </button>
                     </div>
                 )}
-            </main>
+                {/* Quick Appointment Modal */}
+                {bookingRoom && (
+                    <div className="hx-modal-backdrop" onClick={() => setBookingRoom(null)}>
+                        <div className="hx-modal-dialog" onClick={(e) => e.stopPropagation()}>
+                            <div className="hx-modal-header">
+                                <div>
+                                    <h3 className="hx-modal-title">Hẹn lịch xem phòng trực tiếp</h3>
+                                    <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748B" }}>
+                                        {bookingRoom.roomName || bookingRoom.title}
+                                    </p>
+                                </div>
+                                <button className="hx-modal-close" onClick={() => setBookingRoom(null)}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {bookingSuccess ? (
+                                <div style={{ textAlign: "center", padding: "20px 0" }}>
+                                    <div style={{ width: 60, height: 60, background: "#ECFDF5", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "#10B981" }}>
+                                        <CheckCircle2 size={36} />
+                                    </div>
+                                    <h4 style={{ fontSize: 18, fontWeight: 800, color: "#0F172A", marginBottom: 8 }}>
+                                        Đặt lịch hẹn xem phòng thành công!
+                                    </h4>
+                                    <p style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.6, maxWidth: 420, margin: "0 auto 16px" }}>
+                                        Yêu cầu xem phòng vào <strong>{bookingData.timeSlot}</strong> ngày <strong>{bookingData.date === "today" ? "Hôm nay" : bookingData.date === "tomorrow" ? "Ngày mai" : bookingData.date}</strong> đã được gửi tới chủ nhà và điều phối viên HexRoom.
+                                    </p>
+                                    <div style={{ background: "#F8FAFC", padding: 14, borderRadius: 12, textAlign: "left", marginBottom: 20 }}>
+                                        <div style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>ĐỊA CHỈ XEM PHÒNG:</div>
+                                        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0F172A", marginTop: 2 }}>
+                                            {bookingRoom.address || bookingRoom.rental?.location?.address || "Quận Bình Thạnh, TP.HCM"}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: "#059669", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                            <ShieldCheck size={14} /> Có biên bản kiểm định 4 bước đối chiếu tại chỗ
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="hx-hero-submit-btn"
+                                        style={{ width: "100%" }}
+                                        onClick={() => setBookingRoom(null)}
+                                    >
+                                        Đã hiểu & Đóng
+                                    </button>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleConfirmBooking} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                                    <div>
+                                        <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                                            1. Chọn ngày xem phòng:
+                                        </label>
+                                        <div style={{ display: "flex", gap: 8 }}>
+                                            {["today", "tomorrow", "weekend"].map(d => (
+                                                <button
+                                                    key={d}
+                                                    type="button"
+                                                    className={`rooms-price-chip ${bookingData.date === d ? "active" : ""}`}
+                                                    style={{ flex: 1, padding: "8px 0", textAlign: "center" }}
+                                                    onClick={() => setBookingData(prev => ({ ...prev, date: d }))}
+                                                >
+                                                    {d === "today" ? "Hôm nay" : d === "tomorrow" ? "Ngày mai" : "Cuối tuần"}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                                            2. Chọn khung giờ thuận tiện:
+                                        </label>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                                            {["09:00 - 11:30", "14:00 - 16:30", "18:00 - 20:00"].map(t => (
+                                                <button
+                                                    key={t}
+                                                    type="button"
+                                                    className={`rooms-price-chip ${bookingData.timeSlot === t ? "active" : ""}`}
+                                                    style={{ padding: "8px 0", textAlign: "center", fontSize: 12 }}
+                                                    onClick={() => setBookingData(prev => ({ ...prev, timeSlot: t }))}
+                                                >
+                                                    {t}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                                            3. Họ và tên của bạn:
+                                        </label>
+                                        <input
+                                            required
+                                            className="rooms-price-input"
+                                            style={{ width: "100%", padding: "9px 12px" }}
+                                            placeholder="Nguyễn Văn A"
+                                            value={bookingData.name}
+                                            onChange={e => setBookingData(prev => ({ ...prev, name: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                                            4. Số điện thoại nhận xác nhận (Zalo/SMS):
+                                        </label>
+                                        <input
+                                            required
+                                            type="tel"
+                                            className="rooms-price-input"
+                                            style={{ width: "100%", padding: "9px 12px" }}
+                                            placeholder="0912 345 678"
+                                            value={bookingData.phone}
+                                            onChange={e => setBookingData(prev => ({ ...prev, phone: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div style={{ background: "#ECFDF5", padding: "10px 12px", borderRadius: 8, fontSize: 12, color: "#047857", display: "flex", alignItems: "center", gap: 6 }}>
+                                        <ShieldCheck size={16} />
+                                        <span>HexRoom cam kết: Không thu bất kỳ phí dẫn khách nào, bảo mật SĐT 100%.</span>
+                                    </div>
+
+                                    <button type="submit" className="hx-hero-submit-btn" style={{ width: "100%", padding: "12px 0", marginTop: 6 }}>
+                                        Xác nhận lịch hẹn xem phòng miễn phí
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                )}
+                </main>
 
             <Footer />
         </div>

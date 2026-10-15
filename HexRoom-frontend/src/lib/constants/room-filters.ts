@@ -160,3 +160,51 @@ export const FILTER_SORT_OPTIONS = [
     { value: 'price_desc', label: 'Giá: Cao đến thấp' },
     { value: 'size_desc', label: 'Diện tích lớn nhất' }
 ] as const;
+
+
+export interface UniversityOption {
+    id: string;
+    name: string;
+    shortName: string;
+    city: string;
+    district: string;
+}
+
+export const POPULAR_UNIVERSITIES: UniversityOption[] = [
+    { id: 'hcmut', name: 'Đại học Bách Khoa TP.HCM', shortName: 'ĐH Bách Khoa', city: 'Hồ Chí Minh', district: 'Quận 10' },
+    { id: 'ueh', name: 'Đại học Kinh Tế TP.HCM (UEH)', shortName: 'ĐH Kinh Tế', city: 'Hồ Chí Minh', district: 'Quận 3' },
+    { id: 'ftu2', name: 'Đại học Ngoại Thương CS2', shortName: 'ĐH Ngoại Thương', city: 'Hồ Chí Minh', district: 'Quận Bình Thạnh' },
+    { id: 'rmit', name: 'Đại học Quốc Tế RMIT', shortName: 'RMIT', city: 'Hồ Chí Minh', district: 'Quận 7' },
+    { id: 'hutech', name: 'Đại học Công Nghệ TP.HCM (HUTECH)', shortName: 'HUTECH', city: 'Hồ Chí Minh', district: 'Quận Bình Thạnh' },
+    { id: 'vnuhcm', name: 'Đại học Quốc Gia TP.HCM', shortName: 'ĐHQG TP.HCM', city: 'Hồ Chí Minh', district: 'TP. Thủ Đức' },
+    { id: 'uel', name: 'Đại học Kinh Tế - Luật', shortName: 'Kinh Tế - Luật', city: 'Hồ Chí Minh', district: 'TP. Thủ Đức' },
+    { id: 'hust', name: 'Đại học Bách Khoa Hà Nội', shortName: 'Bách Khoa HN', city: 'Hà Nội', district: 'Quận Hai Bà Trưng' },
+    { id: 'neu', name: 'Đại học Kinh Tế Quốc Dân (NEU)', shortName: 'NEU', city: 'Hà Nội', district: 'Quận Hai Bà Trưng' },
+    { id: 'ftu1', name: 'Đại học Ngoại Thương Hà Nội', shortName: 'Ngoại Thương HN', city: 'Hà Nội', district: 'Quận Đống Đa' },
+    { id: 'vnu_hn', name: 'Đại học Quốc Gia Hà Nội', shortName: 'ĐHQG Hà Nội', city: 'Hà Nội', district: 'Quận Cầu Giấy' }
+];
+
+export interface PolicyFilterItem {
+    id: string;
+    label: string;
+    icon: string;
+    keyword: string;
+}
+
+export const FILTER_POLICIES: PolicyFilterItem[] = [
+    { id: 'no_curfew', label: 'Giờ giấc tự do 24/7', icon: '🕒', keyword: 'tự do' },
+    { id: 'no_landlord', label: 'Không chung chủ', icon: '🔑', keyword: 'không chung chủ' },
+    { id: 'pet_allowed', label: 'Cho phép nuôi thú cưng', icon: '🐾', keyword: 'thú cưng' },
+    { id: 'smart_lock', label: 'Khóa vân tay / Thẻ từ', icon: '🔐', keyword: 'vân tay' },
+    { id: 'free_parking', label: 'Miễn phí chỗ để xe', icon: '🛵', keyword: 'giữ xe' },
+    { id: 'govt_elec', label: 'Điện chuẩn giá dân', icon: '⚡', keyword: 'giá dân' }
+];
+
+export const FILTER_TARGET_TENANTS = [
+    { value: '', label: 'Tất cả đối tượng' },
+    { value: 'student', label: 'Sinh viên' },
+    { value: 'female_only', label: 'Chỉ cho Nữ' },
+    { value: 'male_only', label: 'Chỉ cho Nam' },
+    { value: 'working', label: 'Người đi làm' },
+    { value: 'family', label: 'Cặp đôi / Gia đình' }
+];
