@@ -973,7 +973,7 @@
     display: flex;
     align-items: center;
     gap: 0.45rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .landlord-full-name {
@@ -1013,13 +1013,15 @@
     display: inline-flex;
     align-items: center;
     gap: 0.2rem;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: #92400E;
     background: #FEF3C7;
-    padding: 0.1rem 0.45rem;
+    padding: 0.12rem 0.45rem;
     border-radius: 999px;
     border: 1px solid rgba(245, 158, 11, 0.3);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .landlord-sub-row {

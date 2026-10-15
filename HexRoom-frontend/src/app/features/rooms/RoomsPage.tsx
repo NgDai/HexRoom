@@ -1463,9 +1463,6 @@ export function RoomsPage() {
                                                 <div className="landlord-text-col">
                                                     <div className="landlord-heading-row">
                                                         <span className="landlord-full-name">{landlord.fullName}</span>
-                                                        <span className={`landlord-role-badge ${landlord.role === 'QUẢN LÝ TÒA NHÀ' ? 'manager' : landlord.role === 'ĐẠI DIỆN VẬN HÀNH' ? 'coliving' : 'owner'}`}>
-                                                            {landlord.roleBadge}
-                                                        </span>
                                                         <span className="landlord-rating-pill">
                                                             ⭐ {landlord.rating} <small>({landlord.reviewCount})</small>
                                                         </span>
