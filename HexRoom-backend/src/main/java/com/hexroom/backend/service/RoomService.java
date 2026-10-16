@@ -8,8 +8,10 @@ import com.hexroom.backend.entity.Amenity;
 import com.hexroom.backend.entity.Rental;
 import com.hexroom.backend.entity.Room;
 import com.hexroom.backend.entity.RoomImage;
+import com.hexroom.backend.entity.User;
 import com.hexroom.backend.entity.enums.RoomStatus;
 import com.hexroom.backend.entity.enums.RentalStatus;
+import com.hexroom.backend.entity.enums.UserRole;
 import com.hexroom.backend.exception.BadRequestException;
 import com.hexroom.backend.exception.ForbiddenException;
 import com.hexroom.backend.exception.ResourceNotFoundException;
@@ -47,6 +49,11 @@ public class RoomService {
 
         if (!isAdmin && !rental.getOwner().getId().equals(landlordId)) {
             throw new ForbiddenException("Bạn không phải chủ sở hữu của bài đăng này");
+        }
+
+        User owner = rental.getOwner();
+        if (!isAdmin && owner.getRole() == UserRole.LANDLORD && !Boolean.TRUE.equals(owner.getIsIdentityVerified())) {
+            throw new BadRequestException("Chủ trọ cần hoàn tất xác thực thông tin cá nhân (CCCD, SĐT, Email) trước khi đăng phòng trọ.");
         }
 
         Room room = Room.builder()

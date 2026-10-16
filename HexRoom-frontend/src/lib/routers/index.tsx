@@ -64,10 +64,10 @@ const WalletPage = lazy(() => import('@/app/features/wallet').then((m) => ({ def
 
 const routes = [
     { path: '/how-it-works', element: <HowItWorksPage /> },
-    { path: '/workspace', element: <ProtectedRoute><WorkspacePage /></ProtectedRoute> },
-    { path: '/post-room', element: <ProtectedRoute><WorkspacePage /></ProtectedRoute> },
-    { path: '/inspector', element: <Suspense fallback={<PageLoader />}><InspectorPortalPage /></Suspense> },
-    { path: '/admin-portal', element: <Suspense fallback={<PageLoader />}><AdminPortalPage /></Suspense> },
+    { path: '/workspace', element: <ProtectedRoute requiredRole={['LANDLORD', 'ADMIN']}><WorkspacePage /></ProtectedRoute> },
+    { path: '/post-room', element: <ProtectedRoute requiredRole={['LANDLORD', 'ADMIN']}><WorkspacePage /></ProtectedRoute> },
+    { path: '/inspector', element: <ProtectedRoute requiredRole={['INSPECTOR', 'MODERATOR', 'ADMIN']}><Suspense fallback={<PageLoader />}><InspectorPortalPage /></Suspense></ProtectedRoute> },
+    { path: '/admin-portal', element: <ProtectedRoute requiredRole="ADMIN"><Suspense fallback={<PageLoader />}><AdminPortalPage /></Suspense></ProtectedRoute> },
     {
         path: '/',
         loader: () => redirect('/home'),
@@ -217,7 +217,7 @@ const routes = [
     {
         path: '/rental-management',
         element: (
-            <ProtectedRoute requiredRole="LANDLORD">
+            <ProtectedRoute requiredRole={['LANDLORD', 'ADMIN']}>
                 <Suspense fallback={<PageLoader />}>
                     <LayoutRentalManagements />
                 </Suspense>

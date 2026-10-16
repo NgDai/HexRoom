@@ -5,12 +5,13 @@ import { useAuth } from '@/app/context/useAuth';
 import { request, money, inspectionCategories, inspectionStatuses, type ApiRoom, type Page } from '@/lib/hexroom-api';
 import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
 import {
-    Building2, Home, PlusCircle, CheckCircle2, ShieldCheck, Camera, Sparkles,
+    Building2, Home, PlusCircle, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Sparkles,
     Banknote, FileText, Trash2, Eye, Calendar, Clock, Phone, AlertCircle,
     Info, X, Image as ImageIcon, Zap, Droplets, Wifi, Car, Plus, Shield,
     Search, Filter, ArrowUpDown, LayoutGrid, Table, Check, ExternalLink,
     RefreshCw, ChevronRight, User, Users, MapPin, Tag, ArrowRight, Edit3, KeyRound
 } from 'lucide-react';
+import { LandlordVerificationModal } from './LandlordVerificationModal';
 
 type Rental = { id: string; title: string; status: string; address?: string; district?: string; city?: string };
 
@@ -110,6 +111,28 @@ export function WorkspacePage() {
     const staff = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
     const owner = user?.role === 'LANDLORD' || user?.role === 'ADMIN';
     const authorized = staff || owner;
+
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
+    const [isVerifiedLocally, setIsVerifiedLocally] = useState<boolean>(() => {
+        try {
+            const id = user?.id || 'demo';
+            return localStorage.getItem(`hexroom_landlord_verified_${id}`) === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    const isLandlordVerified = useMemo(() => {
+        if (user?.role !== 'LANDLORD') return true;
+        if (user?.isIdentityVerified) return true;
+        if (isVerifiedLocally) return true;
+        try {
+            const id = user?.id || 'demo';
+            return localStorage.getItem(`hexroom_landlord_verified_${id}`) === 'true';
+        } catch {
+            return false;
+        }
+    }, [user?.role, user?.isIdentityVerified, user?.id, isVerifiedLocally]);
 
     const [rooms, setRooms] = useState<ApiRoom[]>([]);
     const [rentals, setRentals] = useState<Rental[]>([]);
@@ -290,6 +313,11 @@ export function WorkspacePage() {
 
     const createRental = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (user?.role === 'LANDLORD' && !isLandlordVerified) {
+            setShowVerifyModal(true);
+            setError('Chủ trọ cần hoàn tất xác thực thông tin cá nhân (CCCD, SĐT, Email) trước khi tạo Nhà trọ mới.');
+            return;
+        }
         const data = new FormData(e.currentTarget);
         const newRental: Rental = {
             id: `rental-${Date.now()}`,
@@ -306,6 +334,11 @@ export function WorkspacePage() {
 
     const handleSaveRoom = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (user?.role === 'LANDLORD' && !isLandlordVerified) {
+            setShowVerifyModal(true);
+            setError('Chủ trọ cần hoàn tất xác thực thông tin cá nhân (CCCD, SĐT, Email) trước khi đăng phòng trọ.');
+            return;
+        }
         const data = new FormData(e.currentTarget);
         const num = (k: string) => data.get(k) === '' ? null : Number(data.get(k));
 
@@ -552,7 +585,14 @@ export function WorkspacePage() {
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <button
                                     type="button"
-                                    onClick={() => { setMode('room'); setSelected(null); }}
+                                    onClick={() => {
+                                        if (user?.role === 'LANDLORD' && !isLandlordVerified) {
+                                            setShowVerifyModal(true);
+                                            return;
+                                        }
+                                        setMode('room');
+                                        setSelected(null);
+                                    }}
                                     style={{
                                         display: 'inline-flex',
                                         alignItems: 'center',
@@ -573,7 +613,14 @@ export function WorkspacePage() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => { setMode('rental'); setSelected(null); }}
+                                    onClick={() => {
+                                        if (user?.role === 'LANDLORD' && !isLandlordVerified) {
+                                            setShowVerifyModal(true);
+                                            return;
+                                        }
+                                        setMode('rental');
+                                        setSelected(null);
+                                    }}
                                     style={{
                                         display: 'inline-flex',
                                         alignItems: 'center',
@@ -630,6 +677,84 @@ export function WorkspacePage() {
                             <div style={{ marginBottom: 20, padding: '12px 16px', borderRadius: 12, background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#065F46', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700 }}>
                                 <CheckCircle2 size={18} color="#059669" />
                                 <span>{success}</span>
+                            </div>
+                        )}
+
+                        {/* ── LANDLORD IDENTITY VERIFICATION (eKYC) BANNER ── */}
+                        {user?.role === 'LANDLORD' && (
+                            <div style={{
+                                marginBottom: 24,
+                                padding: '16px 20px',
+                                borderRadius: 16,
+                                background: isLandlordVerified ? '#F0FDF4' : '#FFFBEB',
+                                border: isLandlordVerified ? '1.5px solid #86EFAC' : '1.5px solid #FCD34D',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: 16,
+                                boxShadow: isLandlordVerified ? '0 2px 10px rgba(16, 185, 129, 0.08)' : '0 2px 10px rgba(245, 158, 11, 0.08)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                    <div style={{
+                                        width: 44,
+                                        height: 44,
+                                        borderRadius: 12,
+                                        background: isLandlordVerified ? '#DCFCE7' : '#FEF3C7',
+                                        color: isLandlordVerified ? '#16A34A' : '#D97706',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0
+                                    }}>
+                                        {isLandlordVerified ? <ShieldCheck size={26} /> : <AlertCircle size={26} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
+                                                {isLandlordVerified ? 'Chủ trọ đã xác thực eKYC 100%' : 'Chưa hoàn tất xác thực thông tin Chủ trọ'}
+                                            </h3>
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: 999,
+                                                fontSize: 11,
+                                                fontWeight: 750,
+                                                background: isLandlordVerified ? '#DCFCE7' : '#FEF3C7',
+                                                color: isLandlordVerified ? '#15803D' : '#B45309'
+                                            }}>
+                                                {isLandlordVerified ? 'Đã kích hoạt quyền đăng phòng' : 'Bắt buộc trước khi đăng phòng'}
+                                            </span>
+                                        </div>
+                                        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#475569' }}>
+                                            {isLandlordVerified
+                                                ? `CCCD: ${user?.identityCardNumber || '079098123456'} • SĐT: ${user?.phone || '0908123456'} • Email: ${user?.email || 'landlord@hexroom.vn'} • Hồ sơ eKYC hợp lệ và được cấp huy hiệu bảo chứng 100%.`
+                                                : 'Theo quy định của HexRoom, bạn cần xác thực CCCD 12 số, ảnh 2 mặt và SĐT qua OTP để phòng trọ của bạn đủ điều kiện xuất bản và nhận huy hiệu uy tín.'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowVerifyModal(true)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '9px 18px',
+                                        borderRadius: 10,
+                                        background: isLandlordVerified ? '#FFFFFF' : '#10B981',
+                                        border: isLandlordVerified ? '1px solid #CBD5E1' : 'none',
+                                        color: isLandlordVerified ? '#334155' : '#FFFFFF',
+                                        fontSize: 13,
+                                        fontWeight: 750,
+                                        cursor: 'pointer',
+                                        boxShadow: isLandlordVerified ? 'none' : '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <ShieldCheck size={16} />
+                                    {isLandlordVerified ? 'Xem lại hồ sơ eKYC' : 'Xác thực danh tính ngay (eKYC)'}
+                                </button>
                             </div>
                         )}
 
@@ -1490,7 +1615,50 @@ export function WorkspacePage() {
 
                         {/* ── TAB 3: THÊM / CẬP NHẬT PHÒNG TRỌ (GIAO DIỆN FORM ĐẦY ĐỦ) ── */}
                         {mode === 'room' && (
-                            <form key={selected?.id ?? 'new'} onSubmit={handleSaveRoom}>
+                            user?.role === 'LANDLORD' && !isLandlordVerified ? (
+                                <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: 20, padding: '48px 24px', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', maxWidth: 640, margin: '20px auto' }}>
+                                    <div style={{ width: 68, height: 68, borderRadius: 999, background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.15)' }}>
+                                        <ShieldAlert size={36} />
+                                    </div>
+                                    <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>
+                                        Yêu cầu xác thực danh tính Chủ trọ (eKYC)
+                                    </h2>
+                                    <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 24 }}>
+                                        Để bảo vệ quyền lợi người thuê, loại bỏ phòng ảo và chống lừa đảo tiền cọc, nền tảng <strong>HexRoom</strong> yêu cầu tất cả chủ trọ hoàn tất xác thực thông tin cá nhân trước khi đăng phòng trọ:
+                                    </p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28, textAlign: 'left' }}>
+                                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>1. CCCD 12 số</div>
+                                            <div style={{ fontSize: 12, color: '#64748B' }}>Họ tên, ngày cấp & địa chỉ thường trú</div>
+                                        </div>
+                                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>2. Ảnh CCCD 2 mặt</div>
+                                            <div style={{ fontSize: 12, color: '#64748B' }}>Ảnh 2 mặt & ảnh chân dung rõ nét</div>
+                                        </div>
+                                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>3. SĐT OTP & Email</div>
+                                            <div style={{ fontSize: 12, color: '#64748B' }}>Xác thực SĐT qua mã OTP 6 chữ số</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setMode('list')}
+                                            style={{ padding: '10px 18px', borderRadius: 10, background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontWeight: 600, cursor: 'pointer' }}
+                                        >
+                                            Quay lại danh sách
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowVerifyModal(true)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 10, background: '#10B981', border: 'none', color: '#FFFFFF', fontWeight: 750, cursor: 'pointer', boxShadow: '0 2px 10px rgba(16, 185, 129, 0.35)' }}
+                                        >
+                                            <ShieldCheck size={18} /> Xác thực danh tính ngay (eKYC)
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <form key={selected?.id ?? 'new'} onSubmit={handleSaveRoom}>
                                 {/* Banner callout when no rentals exist */}
                                 {!selected && rentals.length === 0 && (
                                     <div className="hx-inspector-callout" style={{ background: '#FFFBEB', borderColor: '#FDE68A', marginBottom: 24 }}>
@@ -2127,7 +2295,7 @@ export function WorkspacePage() {
                                     </button>
                                 </div>
                             </form>
-                        )}
+                        ))}
 
                         {/* ── TAB 4: MODERATOR/STAFF INSPECTION LOGGING ── */}
                         {mode === 'inspection' && selected && (
@@ -2838,6 +3006,16 @@ export function WorkspacePage() {
                     </div>
                 </div>
             )}
+
+            {/* ── MODAL: XÁC THỰC DANH TÍNH CHỦ TRỌ (eKYC) ── */}
+            <LandlordVerificationModal
+                isOpen={showVerifyModal}
+                onClose={() => setShowVerifyModal(false)}
+                onSuccess={() => {
+                    setIsVerifiedLocally(true);
+                    setSuccess('🎉 Chúc mừng bạn đã hoàn tất xác thực danh tính chủ trọ (eKYC)! Bạn đã đủ điều kiện đăng phòng trọ và được gắn huy hiệu bảo chứng 100%.');
+                }}
+            />
 
             <Footer />
         </div>

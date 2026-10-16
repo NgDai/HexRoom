@@ -18,7 +18,7 @@ public class InspectionController {
     public ApiResponse<List<InspectionResponse>> list(@PathVariable UUID roomId, @AuthenticationPrincipal UserPrincipal viewer) {
         return ApiResponse.success(service.list(roomId, viewer));
     }
-    @PostMapping @PreAuthorize("hasAnyRole('ADMIN', 'MODERATOR')")
+    @PostMapping @PreAuthorize("hasAnyRole('ADMIN', 'MODERATOR', 'INSPECTOR')")
     public ApiResponse<InspectionResponse> record(@PathVariable UUID roomId, @AuthenticationPrincipal UserPrincipal user,
             @Valid @RequestBody InspectionRequest request) {
         return ApiResponse.success(service.record(roomId, user.getId(), request));

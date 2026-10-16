@@ -5,5 +5,6 @@ public enum UserRole {
     LANDLORD,
     TENANT,
     GUEST,
-    MODERATOR
+    MODERATOR,
+    INSPECTOR
 }

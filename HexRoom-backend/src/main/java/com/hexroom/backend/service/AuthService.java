@@ -344,4 +344,28 @@ public class AuthService {
         refreshTokenRepository.save(refreshToken);
         return token;
     }
+
+    @Transactional
+    public UserSummaryDto verifyIdentity(UUID userId, VerifyIdentityRequest req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        user.setFullName(req.getFullName().trim());
+        user.setIdentityCardNumber(req.getIdentityCardNumber().trim());
+        user.setPhone(req.getPhone().trim());
+        user.setPhoneVerified(true);
+        user.setEmailVerified(true);
+        user.setIsIdentityVerified(true);
+        user.setIdentityVerifiedAt(LocalDateTime.now());
+        if (req.getPermanentAddress() != null) user.setPermanentAddress(req.getPermanentAddress().trim());
+        if (req.getDateOfBirth() != null) user.setDateOfBirth(req.getDateOfBirth().trim());
+        if (req.getIdentityCardIssuedDate() != null) user.setIdentityCardIssuedDate(req.getIdentityCardIssuedDate().trim());
+        if (req.getIdentityCardIssuedPlace() != null) user.setIdentityCardIssuedPlace(req.getIdentityCardIssuedPlace().trim());
+        if (req.getIdentityCardFrontUrl() != null) user.setIdentityCardFrontUrl(req.getIdentityCardFrontUrl().trim());
+        if (req.getIdentityCardBackUrl() != null) user.setIdentityCardBackUrl(req.getIdentityCardBackUrl().trim());
+
+        User saved = userRepository.save(user);
+        log.info("Chủ trọ {} đã xác thực CCCD {} thành công", saved.getEmail(), saved.getIdentityCardNumber());
+        return UserSummaryDto.fromEntity(saved);
+    }
 }

@@ -12,6 +12,17 @@ export interface AuthUser {
     createdAt?: string;
     isVip?: boolean;
     vipExpiresAt?: string | null;
+    isIdentityVerified?: boolean;
+    identityCardNumber?: string | null;
+    identityCardIssuedDate?: string | null;
+    identityCardIssuedPlace?: string | null;
+    identityCardFrontUrl?: string | null;
+    identityCardBackUrl?: string | null;
+    phoneVerified?: boolean;
+    emailVerified?: boolean;
+    permanentAddress?: string | null;
+    dateOfBirth?: string | null;
+    identityVerifiedAt?: string | null;
 }
 
 export interface AuthContextValue {

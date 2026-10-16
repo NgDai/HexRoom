@@ -66,14 +66,16 @@ public class SecurityConfig {
                         ).permitAll()
                         // Public GET endpoints for browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/media/images/**").permitAll()
-                        .requestMatchers("/api/rooms/manage", "/api/rentals/mine").authenticated()
+                        // Public GET endpoints for browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/locations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/amenities/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rentals/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**").permitAll()
-                        // Admin / Moderator restricted endpoints
+                        // Role-specific access control
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/moderator/**").hasAnyRole("ADMIN", "MODERATOR")
+                        .requestMatchers("/api/moderator/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR")
+                        .requestMatchers("/api/inspections/**", "/api/rooms/*/inspections/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR", "LANDLORD")
+                        .requestMatchers("/api/rooms/manage", "/api/rentals/mine").hasAnyRole("LANDLORD", "ADMIN", "MODERATOR")
                         // Any other request must be authenticated
                         .anyRequest().authenticated()
                 );

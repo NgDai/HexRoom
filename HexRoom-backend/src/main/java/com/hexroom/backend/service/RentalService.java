@@ -8,6 +8,8 @@ import com.hexroom.backend.entity.Rental;
 import com.hexroom.backend.entity.RentalImage;
 import com.hexroom.backend.entity.User;
 import com.hexroom.backend.entity.enums.RentalStatus;
+import com.hexroom.backend.entity.enums.UserRole;
+import com.hexroom.backend.exception.BadRequestException;
 import com.hexroom.backend.exception.ForbiddenException;
 import com.hexroom.backend.exception.ResourceNotFoundException;
 import com.hexroom.backend.repository.LocationRepository;
@@ -40,6 +42,10 @@ public class RentalService {
     public RentalResponse createRental(UUID ownerId, RentalCreateRequest request) {
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", ownerId));
+
+        if (owner.getRole() == UserRole.LANDLORD && !Boolean.TRUE.equals(owner.getIsIdentityVerified())) {
+            throw new BadRequestException("Chủ trọ cần hoàn tất xác thực thông tin cá nhân (CCCD, SĐT, Email) trước khi tạo bài đăng cho thuê.");
+        }
 
         Location location = Location.builder()
                 .address(request.getLocation().getAddress().trim())

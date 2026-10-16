@@ -31,15 +31,15 @@ function boolLabel(val: boolean | null | undefined): string {
 function InfoCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
     if (value === null || value === undefined || value === '' || value === '—') return null;
     return (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/70 shadow-xs hover:border-emerald-500/40 transition-colors">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/40">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 shadow-xs hover:border-emerald-500/40 transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
                 <Icon className="w-4 h-4" />
             </div>
             <div className="min-w-0 flex-1">
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wide leading-tight">
+                <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wide leading-tight">
                     {label}
                 </span>
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate mt-0.5">
+                <p className="text-xs font-bold text-slate-800 truncate mt-0.5">
                     {value}
                 </p>
             </div>
@@ -140,21 +140,21 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                 onClick={onClose}
             >
                 <div
-                    className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 fade-in duration-200 overflow-hidden"
+                    className="relative w-full max-w-lg bg-white border border-slate-200 shadow-2xl rounded-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 fade-in duration-200 overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0 bg-white">
                         <div className="flex items-center gap-2">
                             <Eye className="w-5 h-5 text-emerald-600" />
-                            <h3 className="font-heading text-lg font-bold text-slate-900 dark:text-white">
+                            <h3 className="font-heading text-lg font-bold text-slate-900">
                                 Hồ sơ người tìm ở ghép
                             </h3>
                         </div>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                             title="Đóng"
                         >
                             <X className="w-5 h-5" />
@@ -162,7 +162,7 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                     </div>
 
                     {/* Body */}
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto bg-white">
                         {loading && (
                             <div className="flex items-center justify-center py-20">
                                 <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
@@ -183,15 +183,15 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                                         <ImageWithFallback
                                             src={U?.avatarUrl || AVATAR_PLACEHOLDER}
                                             alt={U?.fullName || ''}
-                                            className="w-24 h-24 rounded-full object-cover border-3 border-emerald-500 ring-4 ring-emerald-100 dark:ring-emerald-950 shadow-md"
+                                            className="w-24 h-24 rounded-full object-cover border-3 border-emerald-500 ring-4 ring-emerald-100 shadow-md"
                                         />
                                     </div>
                                     <div>
-                                        <h2 className="font-heading text-xl font-extrabold text-slate-900 dark:text-white">
+                                        <h2 className="font-heading text-xl font-extrabold text-slate-900">
                                             {U?.fullName}
                                         </h2>
                                         {U?.gender && (
-                                            <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                            <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
                                                 {U.gender}
                                             </span>
                                         )}
@@ -199,7 +199,7 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
 
                                     {matchScore != null && (
                                         <div>
-                                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/60 font-bold text-xs shadow-xs">
+                                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs shadow-xs">
                                                 <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                                                 {matchScore}% phù hợp với bạn
                                             </span>
@@ -213,12 +213,12 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                                     )}
                                 </div>
 
-                                <div className="h-px bg-slate-200 dark:bg-slate-800" />
+                                <div className="h-px bg-slate-100" />
 
                                 {/* Lifestyle Section */}
                                 {L && (
                                     <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                                             <UserCheck className="w-4 h-4 text-emerald-600" /> Phong cách sống & Thói quen
                                         </div>
 
@@ -236,15 +236,15 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
 
                                         {/* Interests – Highlighted Card with Crisp Badges */}
                                         {L.interests.length > 0 && (
-                                            <div className="mt-4 p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50">
-                                                <div className="flex items-center gap-1.5 text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-2.5">
-                                                    <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Sở thích cá nhân
+                                            <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wide mb-2.5">
+                                                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> Sở thích cá nhân
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">
                                                     {L.interests.map((tag) => (
                                                         <span
                                                             key={tag}
-                                                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-200 border border-blue-200/90 dark:border-blue-800 shadow-xs"
+                                                            className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-white text-slate-800 border border-slate-200 shadow-xs"
                                                         >
                                                             {tag}
                                                         </span>
@@ -255,11 +255,11 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
 
                                         {/* Deal-breakers – High Contrast Warning Card */}
                                         {L.deal_breakers && (
-                                            <div className="mt-3 p-3.5 rounded-xl bg-rose-50/80 dark:bg-rose-950/30 border-l-4 border-l-rose-500 border border-rose-200/80 dark:border-rose-900/50">
-                                                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wide mb-1.5">
-                                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Điều không chấp nhận (Deal-breakers)
+                                            <div className="mt-3 p-3.5 rounded-xl bg-rose-50/80 border-l-4 border-l-rose-500 border border-rose-200">
+                                                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700 uppercase tracking-wide mb-1.5">
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Điều không chấp nhận (Deal-breakers)
                                                 </div>
-                                                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-relaxed pl-1">
+                                                <p className="text-xs font-medium text-slate-800 leading-relaxed pl-1">
                                                     {L.deal_breakers}
                                                 </p>
                                             </div>

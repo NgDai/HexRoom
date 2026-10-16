@@ -45,6 +45,15 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(authService.getProfile(principal.getId())));
     }
 
+    @PostMapping("/verify-identity")
+    @Operation(summary = "Xác thực danh tính chủ trọ (CCCD, SĐT, Email, thông tin cơ bản)")
+    public ResponseEntity<ApiResponse<UserSummaryDto>> verifyIdentity(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody VerifyIdentityRequest request) {
+        UserSummaryDto updated = authService.verifyIdentity(principal.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Xác thực thông tin cá nhân thành công", updated));
+    }
+
     @GetMapping("/suggest-password")
     @Operation(summary = "Gợi ý mật khẩu mạnh")
     public ResponseEntity<ApiResponse<Map<String, String>>> suggestPassword() {

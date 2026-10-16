@@ -63,6 +63,42 @@ public class User {
     @Column(name = "vip_expires_at")
     private LocalDateTime vipExpiresAt;
 
+    @Column(name = "is_identity_verified")
+    @Builder.Default
+    private Boolean isIdentityVerified = false;
+
+    @Column(name = "identity_card_number", length = 30)
+    private String identityCardNumber;
+
+    @Column(name = "identity_card_issued_date")
+    private String identityCardIssuedDate;
+
+    @Column(name = "identity_card_issued_place", length = 150)
+    private String identityCardIssuedPlace;
+
+    @Column(name = "identity_card_front_url")
+    private String identityCardFrontUrl;
+
+    @Column(name = "identity_card_back_url")
+    private String identityCardBackUrl;
+
+    @Column(name = "phone_verified")
+    @Builder.Default
+    private Boolean phoneVerified = false;
+
+    @Column(name = "email_verified")
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    @Column(name = "permanent_address")
+    private String permanentAddress;
+
+    @Column(name = "date_of_birth")
+    private String dateOfBirth;
+
+    @Column(name = "identity_verified_at")
+    private LocalDateTime identityVerifiedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
