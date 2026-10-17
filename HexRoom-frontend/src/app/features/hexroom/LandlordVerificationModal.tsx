@@ -142,6 +142,7 @@ export function LandlordVerificationModal({ isOpen, onClose, onSuccess }: Landlo
         setErrorMessage('');
 
         const payload = {
+            fullName: fullName.trim() || user?.fullName || 'Chủ trọ HexRoom',
             identityCardNumber: idNumber.trim(),
             identityCardIssuedDate: issueDate,
             identityCardIssuedPlace: issuePlace.trim(),

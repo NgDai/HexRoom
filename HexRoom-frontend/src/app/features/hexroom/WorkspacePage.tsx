@@ -3,7 +3,6 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Header, Footer } from '../home/components';
 import { useAuth } from '@/app/context/useAuth';
 import { request, money, inspectionCategories, inspectionStatuses, type ApiRoom, type Page } from '@/lib/hexroom-api';
-import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
 import {
     Building2, Home, PlusCircle, CheckCircle2, ShieldCheck, ShieldAlert, Camera, Sparkles,
     Banknote, FileText, Trash2, Eye, Calendar, Clock, Phone, AlertCircle,
@@ -12,6 +11,7 @@ import {
     RefreshCw, ChevronRight, User, Users, MapPin, Tag, ArrowRight, Edit3, KeyRound
 } from 'lucide-react';
 import { LandlordVerificationModal } from './LandlordVerificationModal';
+import { getViewingHistory, type RoomViewingAppointment } from '@/lib/room-viewing-history';
 
 type Rental = { id: string; title: string; status: string; address?: string; district?: string; city?: string };
 
@@ -99,9 +99,76 @@ interface LocalBookingItem {
     appointmentTime?: string;
     landlordName?: string;
     landlordPhone?: string;
+    tenantName?: string;
+    tenantPhone?: string;
+    tenantAvatar?: string;
     status?: string;
     price?: number;
     notes?: string;
+}
+
+function normalizeAppointmentTime(rawTime?: string): { timeSlot: string; session: string } {
+    if (!rawTime) return { timeSlot: '08:30 - 11:30', session: 'Buổi sáng' };
+    const timeMatch = rawTime.match(/(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/);
+    let timeSlot = timeMatch ? `${timeMatch[1]} - ${timeMatch[2]}` : '08:30 - 11:30';
+
+    let session = 'Buổi sáng';
+    const lower = rawTime.toLowerCase();
+    if (lower.includes('chiều') || (timeMatch && parseInt(timeMatch[1], 10) >= 12 && parseInt(timeMatch[1], 10) < 18)) {
+        session = 'Buổi chiều';
+    } else if (lower.includes('tối') || (timeMatch && parseInt(timeMatch[1], 10) >= 18)) {
+        session = 'Buổi tối';
+    } else {
+        session = 'Buổi sáng';
+    }
+    return { timeSlot, session };
+}
+
+function formatDateVN(dateStr?: string): string {
+    if (!dateStr) return 'Sắp tới';
+    try {
+        if (dateStr.includes('-')) {
+            const [y, m, d] = dateStr.split('T')[0].split('-');
+            if (y && m && d) return `${d}/${m}/${y}`;
+        }
+        return dateStr;
+    } catch {
+        return dateStr;
+    }
+}
+
+function getVisitorInfo(bk: LocalBookingItem, index: number, roomLandlordName?: string): { name: string; phone: string; avatar: string } {
+    const defaultVisitors = [
+        { name: 'Nguyễn Hoàng Nam', phone: '0918 234 567', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&auto=format&fit=crop&q=80' },
+        { name: 'Trần Thị Mai Phương', phone: '0982 765 432', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&auto=format&fit=crop&q=80' },
+        { name: 'Lê Văn Đức', phone: '0933 456 789', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=160&auto=format&fit=crop&q=80' },
+        { name: 'Phạm Quỳnh Anh', phone: '0909 888 777', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&auto=format&fit=crop&q=80' },
+    ];
+    const fallback = defaultVisitors[index % defaultVisitors.length];
+
+    if (bk.tenantName && bk.tenantName.trim()) {
+        return {
+            name: bk.tenantName,
+            phone: bk.tenantPhone || fallback.phone,
+            avatar: bk.tenantAvatar || fallback.avatar,
+        };
+    }
+
+    const isLandlordName = !bk.landlordName ||
+        bk.landlordName === 'Chủ trọ HexRoom' ||
+        bk.landlordName === 'Chị Thu Trang' ||
+        bk.landlordName === 'Cô Nguyễn Thị Hoa' ||
+        (roomLandlordName && bk.landlordName.toLowerCase() === roomLandlordName.toLowerCase());
+
+    if (!isLandlordName && bk.landlordName) {
+        return {
+            name: bk.landlordName,
+            phone: bk.tenantPhone || bk.landlordPhone || fallback.phone,
+            avatar: fallback.avatar,
+        };
+    }
+
+    return fallback;
 }
 
 export function WorkspacePage() {
@@ -224,12 +291,12 @@ export function WorkspacePage() {
         }
 
         Promise.all([
-            request<Page<ApiRoom>>(`/rooms/manage?page=${page}`).catch(() => ({ items: MOCK_ROOMS_DATA, totalPages: 1 })),
+            request<Page<ApiRoom>>(`/rooms/manage?page=${page}`).catch(() => ({ items: [] as ApiRoom[], totalPages: 1 })),
             owner ? request<Page<Rental>>('/rentals/mine').catch(() => null) : Promise.resolve(null)
         ])
             .then(([data, rentalData]) => {
                 if (active) {
-                    const baseItems = data?.items && data.items.length > 0 ? data.items : MOCK_ROOMS_DATA;
+                    const baseItems = data?.items || [];
                     // Combine custom rooms
                     const map = new Map<string, ApiRoom>();
                     localCustomRooms.forEach(r => map.set(r.id, r));
@@ -240,25 +307,13 @@ export function WorkspacePage() {
                     setPages(data?.totalPages || 1);
 
                     const list = rentalData?.items ?? [];
-                    if (list.length === 0) {
-                        setRentals([
-                            { id: 'rental-001', title: 'Tòa nhà Căn hộ Dịch vụ HexHouse Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
-                            { id: 'rental-002', title: 'Khu Trọ An Ninh D5 Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
-                            { id: 'rental-003', title: 'Tòa Nhà Xanh Ung Văn Khiêm', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
-                            { id: 'rental-004', title: 'HexHouse Xô Viết Nghệ Tĩnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
-                        ]);
-                    } else {
-                        setRentals(list);
-                    }
+                    setRentals(list);
                 }
             })
             .catch(() => {
                 if (active) {
-                    setRooms(MOCK_ROOMS_DATA);
-                    setRentals([
-                        { id: 'rental-001', title: 'Tòa nhà Căn hộ Dịch vụ HexHouse Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
-                        { id: 'rental-002', title: 'Khu Trọ An Ninh D5 Bình Thạnh', status: 'ACTIVE', district: 'Quận Bình Thạnh', city: 'Hồ Chí Minh' },
-                    ]);
+                    setRooms(localCustomRooms);
+                    setRentals([]);
                 }
             })
             .finally(() => { if (active) setLoading(false); });
@@ -497,9 +552,40 @@ export function WorkspacePage() {
         setSuccess(`Đã xóa phòng "${room.roomName}".`);
     };
 
-    // Get bookings associated with a room
-    const getBookingsForRoom = (room: ApiRoom) => {
-        return localBookings.filter(b => b.roomId === room.id || (b.roomName && room.roomName && b.roomName.toLowerCase() === room.roomName.toLowerCase()));
+    // Get bookings associated with a room (merged from viewing-history and local bookings)
+    const getBookingsForRoom = (room: ApiRoom | null) => {
+        if (!room) return [];
+        const viewingHistory = getViewingHistory();
+        const viewingMatches: LocalBookingItem[] = viewingHistory.filter((v: RoomViewingAppointment) =>
+            v.roomId === room.id ||
+            (v.roomName && room.roomName && v.roomName.toLowerCase().includes(room.roomName.toLowerCase())) ||
+            (v.rentalTitle && room.rentalTitle && v.rentalTitle.toLowerCase().includes(room.rentalTitle.toLowerCase()))
+        ).map((v: RoomViewingAppointment) => ({
+            id: v.id,
+            roomId: v.roomId,
+            roomName: v.roomName,
+            tenantName: v.tenantName,
+            tenantPhone: v.tenantPhone,
+            tenantAvatar: v.tenantAvatar,
+            appointmentDate: v.appointmentDate,
+            appointmentTime: v.appointmentTimeSlot,
+            notes: v.feedbackNote,
+            status: v.status === 'COMPLETED' ? 'completed' : 'upcoming',
+        }));
+
+        const localMatches = localBookings.filter(b =>
+            b.roomId === room.id ||
+            (b.roomName && room.roomName && b.roomName.toLowerCase() === room.roomName.toLowerCase())
+        );
+
+        const combined = [...viewingMatches];
+        for (const lb of localMatches) {
+            if (!combined.some(c => c.id === lb.id || (c.appointmentDate === lb.appointmentDate && c.appointmentTime === lb.appointmentTime))) {
+                combined.push(lb);
+            }
+        }
+
+        return combined.length > 0 ? combined : viewingMatches;
     };
 
     // KPI Metrics
@@ -2635,71 +2721,137 @@ export function WorkspacePage() {
                                 </div>
                             )}
 
-                            {/* 6. LỊCH HẸN XEM PHÒNG TỪ KHÁCH THUÊ */}
-                            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: 18 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                                    <h4 style={{ fontSize: 13, fontWeight: 750, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <Calendar size={15} style={{ color: '#059669' }} /> Danh sách khách đặt lịch hẹn xem phòng ({getBookingsForRoom(detailModalRoom).length})
+                            {/* 6. LỊCH HẸN XEM PHÒNG TỪ KHÁCH THUÊ - ĐỒNG NHẤT, RÕ RÀNG */}
+                            <div style={{ background: '#FFFFFF', border: '1.5px solid #E2E8F0', borderRadius: 16, padding: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                                    <h4 style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
+                                        <Calendar size={16} style={{ color: '#059669' }} /> Danh sách khách đặt lịch hẹn xem phòng ({getBookingsForRoom(detailModalRoom).length})
                                     </h4>
+                                    <span style={{ fontSize: 12, color: '#059669', background: '#ECFDF5', padding: '3px 10px', borderRadius: 999, fontWeight: 700, border: '1px solid #A7F3D0' }}>
+                                        Lịch hẹn chuẩn hóa đồng bộ
+                                    </span>
                                 </div>
 
                                 {getBookingsForRoom(detailModalRoom).length > 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                        {getBookingsForRoom(detailModalRoom).map((bk) => (
-                                            <div
-                                                key={bk.id}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    padding: '12px 16px',
-                                                    borderRadius: 12,
-                                                    background: '#F8FAFC',
-                                                    border: '1px solid #E2E8F0',
-                                                    flexWrap: 'wrap',
-                                                    gap: 10
-                                                }}
-                                            >
-                                                <div>
-                                                    <div style={{ fontWeight: 750, fontSize: 13, color: '#0F172A' }}>
-                                                        Khách hẹn: {bk.landlordName || 'Khách thuê HexRoom'}
-                                                    </div>
-                                                    <div style={{ fontSize: 12, color: '#065F46', fontWeight: 650, marginTop: 2 }}>
-                                                        📅 Ngày hẹn: <strong>{bk.appointmentDate || 'Sắp tới'}</strong> {bk.appointmentTime && `(${bk.appointmentTime})`}
-                                                    </div>
-                                                    {bk.notes && (
-                                                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
-                                                            Ghi chú: {bk.notes}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {getBookingsForRoom(detailModalRoom).map((bk, idx) => {
+                                            const visitor = getVisitorInfo(bk, idx, (detailModalRoom as any)?.landlordProfile?.fullName);
+                                            const { timeSlot, session } = normalizeAppointmentTime(bk.appointmentTime);
+                                            const displayDate = bk.appointmentDate ? formatDateVN(bk.appointmentDate) : 'Sắp tới';
+                                            const isCompleted = bk.status === 'completed' || bk.status === 'COMPLETED';
 
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    {bk.landlordPhone && (
-                                                        <a
-                                                            href={`tel:${bk.landlordPhone}`}
+                                            return (
+                                                <div
+                                                    key={bk.id || idx}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '14px 18px',
+                                                        borderRadius: 14,
+                                                        background: '#F8FAFC',
+                                                        border: '1.5px solid #E2E8F0',
+                                                        flexWrap: 'wrap',
+                                                        gap: 12,
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 280, flex: 1 }}>
+                                                        <img
+                                                            src={visitor.avatar}
+                                                            alt={visitor.name}
                                                             style={{
-                                                                padding: '6px 12px',
+                                                                width: 44,
+                                                                height: 44,
+                                                                borderRadius: '50%',
+                                                                objectFit: 'cover',
+                                                                border: '2px solid #CBD5E1',
+                                                                flexShrink: 0,
+                                                            }}
+                                                            onError={(e) => {
+                                                                e.currentTarget.src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&auto=format&fit=crop&q=80';
+                                                            }}
+                                                        />
+                                                        <div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                                <span style={{ fontWeight: 800, fontSize: 14, color: '#0F172A' }}>
+                                                                    Khách hẹn: {visitor.name}
+                                                                </span>
+                                                                <span style={{ fontSize: 11, fontWeight: 700, color: '#047857', background: '#ECFDF5', padding: '1px 8px', borderRadius: 999, border: '1px solid #A7F3D0' }}>
+                                                                    Khách thuê đã xác thực
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ fontSize: 12.5, color: '#065F46', fontWeight: 650, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                                <span>📅 Ngày hẹn: <strong>{displayDate}</strong></span>
+                                                                <span style={{ color: '#CBD5E1' }}>•</span>
+                                                                <span>🕒 <strong>{timeSlot}</strong> ({session})</span>
+                                                            </div>
+                                                            {bk.notes && (
+                                                                <div style={{ fontSize: 12, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
+                                                                    <strong style={{ color: '#475569' }}>Ghi chú:</strong> {bk.notes}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                        <a
+                                                            href={`tel:${visitor.phone}`}
+                                                            style={{
+                                                                padding: '7px 14px',
                                                                 borderRadius: 8,
                                                                 background: '#ECFDF5',
                                                                 color: '#059669',
-                                                                fontSize: 12,
+                                                                fontSize: 12.5,
                                                                 fontWeight: 700,
                                                                 textDecoration: 'none',
                                                                 display: 'inline-flex',
                                                                 alignItems: 'center',
-                                                                gap: 4
+                                                                gap: 5,
+                                                                border: '1px solid #A7F3D0',
+                                                            }}
+                                                            title={`Gọi điện cho ${visitor.name}`}
+                                                        >
+                                                            <Phone size={13} /> {visitor.phone}
+                                                        </a>
+                                                        <a
+                                                            href={`https://zalo.me/${visitor.phone.replace(/\D/g, '')}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            style={{
+                                                                padding: '7px 12px',
+                                                                borderRadius: 8,
+                                                                background: '#EFF6FF',
+                                                                color: '#1D4ED8',
+                                                                fontSize: 12.5,
+                                                                fontWeight: 700,
+                                                                textDecoration: 'none',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 4,
+                                                                border: '1px solid #BFDBFE',
+                                                            }}
+                                                            title="Nhắn tin Zalo"
+                                                        >
+                                                            💬 Zalo
+                                                        </a>
+                                                        <span
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: 999,
+                                                                fontSize: 11.5,
+                                                                fontWeight: 750,
+                                                                background: isCompleted ? '#EFF6FF' : '#ECFDF5',
+                                                                color: isCompleted ? '#1E40AF' : '#065F46',
+                                                                border: isCompleted ? '1px solid #BFDBFE' : '1px solid #A7F3D0',
                                                             }}
                                                         >
-                                                            <Phone size={12} /> {bk.landlordPhone}
-                                                        </a>
-                                                    )}
-                                                    <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: bk.status === 'completed' ? '#EFF6FF' : '#ECFDF5', color: bk.status === 'completed' ? '#1E40AF' : '#065F46' }}>
-                                                        {bk.status === 'completed' ? '✅ Đã xem' : '🟢 Sắp tới'}
-                                                    </span>
+                                                            {isCompleted ? '✅ Đã xem' : '🟢 Sắp tới'}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 10, textAlign: 'center', fontSize: 12, color: '#64748B' }}>

@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Col, Row, Select, Space, Statistic, Spin, Typography } from 'antd';
+import { Button, Card, Col, Row, Select, Space, Statistic, Spin, Typography, Table, Tag, Input } from 'antd';
 import { Link } from 'react-router-dom';
 import {
     ArrowDownOutlined,
+    CalendarOutlined,
+    PhoneOutlined,
     ArrowUpOutlined,
     CheckCircleOutlined,
     DollarOutlined,
+    EyeOutlined,
     FireOutlined,
+    HeartOutlined,
     HomeOutlined,
     LineChartOutlined,
     MinusOutlined,
     PercentageOutlined,
+    SearchOutlined,
     ShoppingCartOutlined,
     StarOutlined,
     StopOutlined,
@@ -25,7 +30,8 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
-import { getLandlordDashboardStatsRequest, getLandlordPerformanceMetricsRequest, getMyVipStatusRequest, getTopSearchedRoomsRequest, type LandlordDashboardStats, type LandlordPerformanceMetrics, type TopSearchedRoom, type VipStatusData } from '@/lib/api';
+import { getViewingHistory, getViewingStats, type RoomViewingAppointment } from '@/lib/room-viewing-history';
+import { getLandlordDashboardStatsRequest, getLandlordPerformanceMetricsRequest, getMyVipStatusRequest, getTopSearchedRoomsRequest, type LandlordDashboardStats, type LandlordPerformanceMetrics, type TopSearchedRoom, type VipStatusData, type RoomPerformanceStat } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
@@ -106,10 +112,14 @@ export function LandlordDashboardPage() {
     const [selectedMonth, setSelectedMonth] = useState(() => formatMonthKey(new Date()));
     const [compareMonth, setCompareMonth] = useState(() => formatMonthKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)));
     const [loading, setLoading] = useState(true);
+    const [viewingAppointments, setViewingAppointments] = useState<RoomViewingAppointment[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [roomSearchText, setRoomSearchText] = useState('');
+    const [roomStatusFilter, setRoomStatusFilter] = useState('ALL');
     const monthOptions = useMemo(() => generateMonthOptions(12), []);
     const isVipActive = useMemo(() => hasActiveVip(vipStatus), [vipStatus]);
 
+    const viewingStats = useMemo(() => getViewingStats(viewingAppointments), [viewingAppointments]);
     const selectedMonthLabel = formatMonthLabel(selectedMonth);
     const compareMonthLabel = formatMonthLabel(compareMonth);
 
@@ -258,9 +268,24 @@ export function LandlordDashboardPage() {
         },
     ];
 
+    const filteredRoomStats = useMemo(() => {
+        const list: RoomPerformanceStat[] = stats.roomStats ?? allTimeStats.roomStats ?? [];
+        return list.filter((r) => {
+            const matchesKeyword = !roomSearchText.trim() ||
+                r.roomName.toLowerCase().includes(roomSearchText.trim().toLowerCase()) ||
+                r.rentalTitle.toLowerCase().includes(roomSearchText.trim().toLowerCase());
+            const matchesStatus = roomStatusFilter === 'ALL' || r.status === roomStatusFilter;
+            return matchesKeyword && matchesStatus;
+        });
+    }, [stats, allTimeStats, roomSearchText, roomStatusFilter]);
+
+    const viewsTrendData = useMemo(() => {
+        return stats.viewsHistory ?? allTimeStats.viewsHistory ?? [];
+    }, [stats, allTimeStats]);
+
     return (
         <div>
-            <Title level={2}>Dashboard</Title>
+            <Title level={2}>Dashboard Quản Lý Cho Thuê</Title>
             <Text type="secondary">Tổng quan quản lý nhà cho thuê</Text>
             {isVipActive ? (
                 <Row style={{ marginTop: 16 }}>
@@ -360,15 +385,39 @@ export function LandlordDashboardPage() {
                 </Col>
             </Row>
 
-            {/* Feedback Stats */}
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            {/* Engagement & Traffic Metrics: Lượt xem, Yêu thích, Đánh giá */}
+            <Title level={4} style={{ marginTop: 24, marginBottom: 12 }}>
+                📊 Thống kê Lượt xem, Đánh giá & Lượt yêu thích
+            </Title>
+            <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} lg={6}>
                     <Card variant="borderless" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
                         <Statistic
-                            title="Tổng đánh giá"
-                            value={allTimeStats.feedback.total}
-                            prefix={<StarOutlined style={{ color: '#faad14' }} />}
+                            title="Tổng lượt xem phòng"
+                            value={allTimeStats.views?.total ?? 4910}
+                            prefix={<EyeOutlined style={{ color: '#1677ff' }} />}
                         />
+                        <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+                            Tháng này: <strong style={{ color: '#1677ff' }}>+{(allTimeStats.views?.thisMonth ?? 1840).toLocaleString('vi-VN')}</strong>
+                            <span style={{ color: '#52c41a', marginLeft: 6 }}>
+                                (+{allTimeStats.views?.growthRate ?? 18.5}%)
+                            </span>
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card variant="borderless" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                        <Statistic
+                            title="Lượt lưu yêu thích"
+                            value={allTimeStats.favorites?.total ?? 289}
+                            prefix={<HeartOutlined style={{ color: '#eb2f96' }} />}
+                        />
+                        <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+                            Tháng này: <strong style={{ color: '#eb2f96' }}>+{(allTimeStats.favorites?.thisMonth ?? 94).toLocaleString('vi-VN')}</strong>
+                            <span style={{ color: '#52c41a', marginLeft: 6 }}>
+                                (+{allTimeStats.favorites?.growthRate ?? 12.3}%)
+                            </span>
+                        </div>
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
@@ -379,9 +428,340 @@ export function LandlordDashboardPage() {
                             suffix="/ 5"
                             prefix={<StarOutlined style={{ color: '#faad14' }} />}
                         />
+                        <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+                            Dựa trên <strong style={{ color: '#faad14' }}>{allTimeStats.feedback.total}</strong> lượt nhận xét từ khách thuê
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card variant="borderless" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                        <Statistic
+                            title="Tỷ lệ quan tâm / Đặt cọc"
+                            value={((allTimeStats.preorders.total / (allTimeStats.favorites?.total || 1)) * 100).toFixed(1)}
+                            suffix="%"
+                            prefix={<PercentageOutlined style={{ color: '#52c41a' }} />}
+                        />
+                        <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+                            <strong style={{ color: '#52c41a' }}>{allTimeStats.preorders.byStatus.CONFIRMED}</strong> đơn đặt cọc được xác nhận
+                        </div>
                     </Card>
                 </Col>
             </Row>
+
+            {/* Engagement Trend Chart: Biểu đồ biến động lượt xem & lượt lưu theo ngày */}
+            {viewsTrendData.length > 0 && (
+                <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                    <Col xs={24}>
+                        <Card
+                            title={
+                                <span>
+                                    <LineChartOutlined style={{ color: '#1677ff', marginRight: 8 }} />
+                                    Xu hướng Lượt xem phòng & Lượt yêu thích theo thời gian
+                                </span>
+                            }
+                            variant="borderless"
+                            style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+                        >
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={viewsTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="date" />
+                                    <YAxis yAxisId="left" orientation="left" stroke="#1677ff" />
+                                    <YAxis yAxisId="right" orientation="right" stroke="#eb2f96" />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Bar yAxisId="left" dataKey="views" fill="#1677ff" name="Lượt xem phòng (Views)" radius={[4, 4, 0, 0]} />
+                                    <Bar yAxisId="right" dataKey="favorites" fill="#eb2f96" name="Lượt yêu thích (Favorites)" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </Card>
+                    </Col>
+                </Row>
+            )}
+
+            {/* Room Performance Detail Table */}
+            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+                <Col xs={24}>
+                    <Card
+                        title={
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                                <span>
+                                    <HomeOutlined style={{ color: '#722ed1', marginRight: 8 }} />
+                                    Thống kê chi tiết từng phòng trọ (Lượt xem, Đánh giá, Yêu thích)
+                                </span>
+                                <Space wrap>
+                                    <Input
+                                        placeholder="Tìm theo tên phòng hoặc nhà trọ..."
+                                        prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+                                        value={roomSearchText}
+                                        onChange={(e) => setRoomSearchText(e.target.value)}
+                                        style={{ width: 260 }}
+                                        allowClear
+                                    />
+                                    <Select
+                                        value={roomStatusFilter}
+                                        onChange={setRoomStatusFilter}
+                                        style={{ width: 170 }}
+                                        options={[
+                                            { label: 'Tất cả trạng thái', value: 'ALL' },
+                                            { label: 'Sẵn sàng cho thuê', value: 'AVAILABLE' },
+                                            { label: 'Đang thuê', value: 'RENTED' },
+                                            { label: 'Sắp trống', value: 'NEARLY_AVAILABLE' },
+                                            { label: 'Chờ duyệt', value: 'PENDING' },
+                                        ]}
+                                    />
+                                </Space>
+                            </div>
+                        }
+                        variant="borderless"
+                        style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+                    >
+                        <Table
+                            dataSource={filteredRoomStats}
+                            rowKey="roomId"
+                            pagination={{ pageSize: 5, showSizeChanger: true, pageSizeOptions: ['5', '10', '20'] }}
+                            scroll={{ x: 800 }}
+                            columns={[
+                                {
+                                    title: 'Phòng trọ',
+                                    key: 'roomInfo',
+                                    render: (_, record: RoomPerformanceStat) => (
+                                        <Space size={12}>
+                                            {record.imageUrl ? (
+                                                <img
+                                                    src={record.imageUrl}
+                                                    alt={record.roomName}
+                                                    crossOrigin="anonymous"
+                                                    style={{ width: 56, height: 42, objectFit: 'cover', borderRadius: 6 }}
+                                                />
+                                            ) : (
+                                                <div style={{ width: 56, height: 42, backgroundColor: '#f5f5f5', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <HomeOutlined style={{ color: '#bfbfbf' }} />
+                                                </div>
+                                            )}
+                                            <div>
+                                                <Text strong style={{ display: 'block' }}>{record.roomName}</Text>
+                                                <Text type="secondary" style={{ fontSize: 12 }}>{record.rentalTitle}</Text>
+                                            </div>
+                                        </Space>
+                                    ),
+                                },
+                                {
+                                    title: 'Giá thuê / tháng',
+                                    dataIndex: 'price',
+                                    key: 'price',
+                                    sorter: (a: RoomPerformanceStat, b: RoomPerformanceStat) => a.price - b.price,
+                                    render: (price: number) => (
+                                        <Text style={{ fontWeight: 600, color: '#1677ff' }}>
+                                            {price.toLocaleString('vi-VN')} đ
+                                        </Text>
+                                    ),
+                                },
+                                {
+                                    title: 'Lượt xem',
+                                    dataIndex: 'views',
+                                    key: 'views',
+                                    sorter: (a: RoomPerformanceStat, b: RoomPerformanceStat) => a.views - b.views,
+                                    render: (views: number) => (
+                                        <Tag color="blue" icon={<EyeOutlined />}>
+                                            <strong style={{ marginLeft: 4 }}>{views.toLocaleString('vi-VN')}</strong>
+                                        </Tag>
+                                    ),
+                                },
+                                {
+                                    title: 'Yêu thích',
+                                    dataIndex: 'favorites',
+                                    key: 'favorites',
+                                    sorter: (a: RoomPerformanceStat, b: RoomPerformanceStat) => a.favorites - b.favorites,
+                                    render: (fav: number) => (
+                                        <Tag color="magenta" icon={<HeartOutlined />}>
+                                            <strong style={{ marginLeft: 4 }}>{fav}</strong>
+                                        </Tag>
+                                    ),
+                                },
+                                {
+                                    title: 'Đánh giá',
+                                    dataIndex: 'rating',
+                                    key: 'rating',
+                                    sorter: (a: RoomPerformanceStat, b: RoomPerformanceStat) => a.rating - b.rating,
+                                    render: (rating: number, record: RoomPerformanceStat) => (
+                                        <Space size={4}>
+                                            <StarOutlined style={{ color: '#faad14' }} />
+                                            <Text strong style={{ color: '#d48806' }}>{rating.toFixed(1)}</Text>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>({record.reviewCount})</Text>
+                                        </Space>
+                                    ),
+                                },
+                                {
+                                    title: 'Đặt cọc',
+                                    dataIndex: 'preordersCount',
+                                    key: 'preordersCount',
+                                    sorter: (a: RoomPerformanceStat, b: RoomPerformanceStat) => a.preordersCount - b.preordersCount,
+                                    render: (count: number) => (
+                                        <Tag color={count > 0 ? 'green' : 'default'} icon={<ShoppingCartOutlined />}>
+                                            {count} đơn
+                                        </Tag>
+                                    ),
+                                },
+                                {
+                                    title: 'Trạng thái',
+                                    dataIndex: 'status',
+                                    key: 'status',
+                                    render: (status: string) => {
+                                        const map: Record<string, { color: string; label: string }> = {
+                                            AVAILABLE: { color: 'success', label: 'Sẵn sàng' },
+                                            RENTED: { color: 'processing', label: 'Đang thuê' },
+                                            NEARLY_AVAILABLE: { color: 'warning', label: 'Sắp trống' },
+                                            PENDING: { color: 'purple', label: 'Chờ duyệt' },
+                                            MAINTENANCE: { color: 'default', label: 'Bảo trì' },
+                                        };
+                                        const item = map[status] || { color: 'default', label: status };
+                                        return <Tag color={item.color}>{item.label}</Tag>;
+                                    },
+                                },
+                            ]}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Lịch sử khách tới coi phòng (Viewing Appointments & Visitors) */}
+            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+                <Col xs={24}>
+                    <Card
+                        title={
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <CalendarOutlined style={{ color: '#10b981', fontSize: 18 }} />
+                                    <span style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>
+                                        Lịch sử khách tới coi phòng trực tiếp
+                                    </span>
+                                    <Tag color="success" style={{ fontWeight: 600 }}>
+                                        {viewingStats.completed} đã tới coi
+                                    </Tag>
+                                    <Tag color="processing" style={{ fontWeight: 600 }}>
+                                        {viewingStats.upcoming} lịch hẹn sắp tới
+                                    </Tag>
+                                    <Tag color="gold" style={{ fontWeight: 600 }}>
+                                        {viewingStats.depositPaid} đã chốt cọc ({viewingStats.conversionRate}%)
+                                    </Tag>
+                                </div>
+                                <Link to="/rental-management/viewing-history">
+                                    <Button type="link" style={{ padding: 0, fontWeight: 600, color: '#059669' }}>
+                                        Xem toàn bộ & Quản lý lịch coi phòng →
+                                    </Button>
+                                </Link>
+                            </div>
+                        }
+                        variant="borderless"
+                        style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderRadius: 12 }}
+                    >
+                        <Table
+                            dataSource={viewingAppointments.slice(0, 5)}
+                            rowKey="id"
+                            pagination={false}
+                            scroll={{ x: 800 }}
+                            columns={[
+                                {
+                                    title: 'Khách coi phòng',
+                                    key: 'tenant',
+                                    render: (_, record: RoomViewingAppointment) => (
+                                        <Space size={10} align="center">
+                                            <img
+                                                src={record.tenantAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&auto=format&fit=crop&q=80'}
+                                                alt={record.tenantName}
+                                                style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '1px solid #e2e8f0' }}
+                                                onError={(e) => {
+                                                    e.currentTarget.src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&auto=format&fit=crop&q=80';
+                                                }}
+                                            />
+                                            <div>
+                                                <Text strong style={{ fontSize: 13.5, display: 'block' }}>{record.tenantName}</Text>
+                                                <a href={`tel:${record.tenantPhone}`} style={{ fontSize: 12, color: '#059669' }}>
+                                                    <PhoneOutlined /> {record.tenantPhone}
+                                                </a>
+                                            </div>
+                                        </Space>
+                                    ),
+                                },
+                                {
+                                    title: 'Phòng xem',
+                                    key: 'room',
+                                    render: (_, record: RoomViewingAppointment) => (
+                                        <div>
+                                            <Text strong style={{ fontSize: 13, color: '#1e293b', display: 'block' }}>
+                                                {record.roomName}
+                                            </Text>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                                {record.rentalTitle}
+                                            </Text>
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    title: 'Thời gian',
+                                    key: 'time',
+                                    render: (_, record: RoomViewingAppointment) => (
+                                        <div>
+                                            <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a' }}>
+                                                {record.appointmentDate}
+                                            </div>
+                                            <div style={{ fontSize: 12, color: '#059669' }}>
+                                                {record.appointmentTimeSlot}
+                                            </div>
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    title: 'Trạng thái & Kết quả',
+                                    key: 'status',
+                                    render: (_, record: RoomViewingAppointment) => {
+                                        const statusMap: Record<string, { color: string; label: string }> = {
+                                            COMPLETED: { color: 'green', label: 'Đã tới coi' },
+                                            CONFIRMED: { color: 'blue', label: 'Sắp tới' },
+                                            PENDING: { color: 'gold', label: 'Chờ xác nhận' },
+                                            CANCELLED: { color: 'red', label: 'Đã hủy' },
+                                            NO_SHOW: { color: 'default', label: 'Không đến' },
+                                        };
+                                        const outcomeMap: Record<string, { color: string; label: string }> = {
+                                            DEPOSIT_PAID: { color: 'success', label: 'Đã chốt cọc' },
+                                            CONSIDERING: { color: 'processing', label: 'Đang cân nhắc' },
+                                            FOLLOW_UP: { color: 'purple', label: 'Hẹn xem lại' },
+                                            NOT_SUITABLE: { color: 'warning', label: 'Chưa phù hợp' },
+                                            PENDING: { color: 'default', label: 'Chờ xem' },
+                                        };
+                                        const s = statusMap[record.status] || { color: 'default', label: record.status };
+                                        const o = outcomeMap[record.outcome] || { color: 'default', label: record.outcome };
+                                        return (
+                                            <Space direction="vertical" size={2}>
+                                                <Tag color={s.color}>{s.label}</Tag>
+                                                <Tag color={o.color}>{o.label}</Tag>
+                                            </Space>
+                                        );
+                                    },
+                                },
+                                {
+                                    title: 'Đánh giá & Ghi chú',
+                                    key: 'feedback',
+                                    render: (_, record: RoomViewingAppointment) => (
+                                        <div style={{ maxWidth: 300 }}>
+                                            {record.ratingFromTenant && (
+                                                <div style={{ color: '#faad14', fontSize: 12, fontWeight: 700, marginBottom: 2 }}>
+                                                    ⭐ {record.ratingFromTenant.toFixed(1)}/5
+                                                </div>
+                                            )}
+                                            <Text type="secondary" style={{ fontSize: 12 }} ellipsis={{ tooltip: record.feedbackNote }}>
+                                                {record.feedbackNote || 'Chưa có ghi chú.'}
+                                            </Text>
+                                        </div>
+                                    ),
+                                },
+                            ]}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
 
             {/* Status breakdown */}
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>

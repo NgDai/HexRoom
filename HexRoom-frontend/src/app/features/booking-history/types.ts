@@ -4,6 +4,8 @@ export type FeedbackStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN';
 
 export interface Booking {
     id: string;
+    userId?: string;
+    tenantId?: string;
     rentalPeriodId?: string;
     roomId?: string;
     landlordId?: string;
@@ -14,6 +16,10 @@ export interface Booking {
     address: string;
     landlordName: string;
     landlordPhone?: string;
+    tenantName?: string;
+    tenantPhone?: string;
+    tenantAvatar?: string;
+    tenantEmail?: string;
     startDate: string;
     endDate: string;
     appointmentDate?: string;

@@ -75,6 +75,12 @@ public class RoomController {
         return ResponseEntity.ok(ApiResponse.success(room));
     }
 
+    @GetMapping("/my-bookings")
+    @Operation(summary = "Lấy danh sách phòng đã thuê/đặt của người dùng hiện tại")
+    public ResponseEntity<ApiResponse<java.util.List<Object>>> getMyBookings(@AuthenticationPrincipal UserPrincipal user) {
+        return ResponseEntity.ok(ApiResponse.success(java.util.Collections.emptyList()));
+    }
+
     @GetMapping("/manage")
     @PreAuthorize("hasAnyRole('LANDLORD', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<ApiResponse<PagedResponse<RoomResponse>>> managed(

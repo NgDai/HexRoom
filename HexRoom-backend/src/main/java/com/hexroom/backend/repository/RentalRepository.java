@@ -15,5 +15,7 @@ public interface RentalRepository extends JpaRepository<Rental, UUID>, JpaSpecif
 
     Page<Rental> findByOwnerId(UUID ownerId, Pageable pageable);
 
+    boolean existsByOwnerId(UUID ownerId);
+
     Page<Rental> findByStatus(RentalStatus status, Pageable pageable);
 }

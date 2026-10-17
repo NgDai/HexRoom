@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Header, Footer } from '../home/components';
 import { useAuth } from '@/app/context/useAuth';
 import { money, type ApiRoom } from '@/lib/hexroom-api';
-import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
 import {
     ShieldCheck, Calendar, Clock, MapPin, Phone, Eye, CheckCircle2,
     AlertCircle, Search, Filter, Camera, Zap, Droplets, Check, X,

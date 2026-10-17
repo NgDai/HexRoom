@@ -13,10 +13,16 @@ import {
     Eye,
     UtensilsCrossed,
     AlertTriangle,
+    Mail,
+    Phone,
+    MapPin,
+    Banknote,
+    Calendar,
+    Home,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/ImageWithFallback';
 import { getRoommateProfileRequest, type RoommatePublicProfile } from '@/lib/api';
-import { MOCK_SEEKERS_DATA } from '@/lib/mock-data';
+import { money } from '@/lib/hexroom-api';
 
 const AVATAR_PLACEHOLDER = '/avatar-facebook-mac-dinh.jpg';
 
@@ -52,56 +58,18 @@ function InfoCard({ icon: Icon, label, value }: { icon: React.ElementType; label
 interface RoommateProfileModalProps {
     userId: string | null;
     matchScore?: number;
+    matchingTags?: string[];
+    warningTags?: string[];
     onClose: () => void;
 }
 
-export function RoommateProfileModal({ userId, matchScore, onClose }: RoommateProfileModalProps) {
+export function RoommateProfileModal({ userId, matchScore, matchingTags, warningTags, onClose }: RoommateProfileModalProps) {
     const [profile, setProfile] = useState<RoommatePublicProfile | null>(null);
     const [loading, setLoading] = useState(!!userId);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!userId) {
-            return;
-        }
-
-        const mockSeeker = MOCK_SEEKERS_DATA.find((s) => s.id === userId);
-        if (mockSeeker) {
-            setProfile({
-                user: {
-                    id: mockSeeker.id,
-                    fullName: mockSeeker.fullName,
-                    avatarUrl: mockSeeker.avatarUrl,
-                    gender: mockSeeker.gender,
-                    memberSince: '2026',
-                },
-                lifestyle: {
-                    smoking: mockSeeker.lifestyle.smoking,
-                    drinking: mockSeeker.lifestyle.drinking,
-                    pets_allowed: mockSeeker.lifestyle.petsAllowed,
-                    sleep_schedule: mockSeeker.lifestyle.sleepSchedule,
-                    work_from_home: mockSeeker.lifestyle.workFromHome,
-                    personalityType: 'Hòa đồng, văn minh',
-                    social_level: mockSeeker.lifestyle.socialLevel,
-                    cleanliness: mockSeeker.lifestyle.cleanliness,
-                    noise_tolerance: mockSeeker.lifestyle.noiseTolerance,
-                    guest_frequency: 'Ít khi',
-                    cooking_frequency: mockSeeker.lifestyle.cookingFrequency,
-                    wake_time: '06:30',
-                    interests: mockSeeker.lifestyle.interests,
-                    deal_breakers: mockSeeker.lifestyle.dealBreakers,
-                },
-                preference: {
-                    preferred_districts: mockSeeker.preferredDistricts,
-                    budget_min: mockSeeker.budgetMin,
-                    budget_max: mockSeeker.budgetMax,
-                    preferredLocation: mockSeeker.preferredDistricts.join(', '),
-                    room_type: 'SHARED',
-                    gender_preference: mockSeeker.gender === 'Nữ' ? 'NỮ' : 'NAM',
-                },
-                ratings: { average: 4.9, count: 12 },
-            } as unknown as RoommatePublicProfile);
-            setLoading(false);
             return;
         }
 
@@ -190,19 +158,53 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                                         <h2 className="font-heading text-xl font-extrabold text-slate-900">
                                             {U?.fullName}
                                         </h2>
-                                        {U?.gender && (
-                                            <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                                                {U.gender}
-                                            </span>
-                                        )}
+                                        <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                                            {U?.gender && (
+                                                <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
+                                                    {U.gender}
+                                                </span>
+                                            )}
+                                            {U?.email && (
+                                                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                    <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                                                    {U.email}
+                                                </span>
+                                            )}
+                                            {U?.phone && (
+                                                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
+                                                    <Phone className="w-3.5 h-3.5 text-slate-500" />
+                                                    {U.phone}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {matchScore != null && (
-                                        <div>
-                                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs shadow-xs">
+                                        <div className="space-y-1.5 pt-1">
+                                            <span className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full font-bold text-xs shadow-xs border ${
+                                                matchScore >= 80
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : matchScore >= 60
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                                            }`}>
                                                 <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                                                 {matchScore}% phù hợp với bạn
                                             </span>
+                                            {matchingTags && matchingTags.length > 0 && (
+                                                <div className="flex flex-wrap justify-center gap-1 pt-1">
+                                                    {matchingTags.map((tag, idx) => (
+                                                        <span key={idx} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                    {warningTags?.map((tag, idx) => (
+                                                        <span key={`w-${idx}`} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60">
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -212,6 +214,63 @@ export function RoommateProfileModal({ userId, matchScore, onClose }: RoommatePr
                                         </p>
                                     )}
                                 </div>
+
+                                <div className="h-px bg-slate-100" />
+
+                                {/* Tiêu chí tìm bạn cùng phòng */}
+                                {(profile.preference || profile.profile) && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                            <Sparkles className="w-4 h-4 text-emerald-600" /> Tiêu chí tìm bạn cùng phòng
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            {(profile.profile?.budgetMin != null || profile.preference?.budget_min != null) && (
+                                                <InfoCard
+                                                    icon={Banknote}
+                                                    label="Ngân sách tìm phòng"
+                                                    value={`${money(Number(profile.profile?.budgetMin ?? profile.preference?.budget_min ?? 0))} - ${money(Number(profile.profile?.budgetMax ?? profile.preference?.budget_max ?? 0))}`}
+                                                />
+                                            )}
+                                            {(profile.profile?.city || profile.preference?.preferredLocation || (profile.preference?.preferred_districts && profile.preference.preferred_districts.length > 0)) && (
+                                                <InfoCard
+                                                    icon={MapPin}
+                                                    label="Khu vực mong muốn"
+                                                    value={profile.profile?.city || profile.preference?.preferredLocation || profile.preference?.preferred_districts?.join(', ')}
+                                                />
+                                            )}
+                                            {profile.profile?.moveInDate && (
+                                                <InfoCard
+                                                    icon={Calendar}
+                                                    label="Dự kiến chuyển vào"
+                                                    value={new Date(profile.profile.moveInDate).toLocaleDateString('vi-VN')}
+                                                />
+                                            )}
+                                            {profile.preference?.room_type && (
+                                                <InfoCard
+                                                    icon={Home}
+                                                    label="Loại phòng"
+                                                    value={profile.preference.room_type}
+                                                />
+                                            )}
+                                        </div>
+
+                                        {profile.preference?.must_have_amenities && profile.preference.must_have_amenities.length > 0 && (
+                                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                                <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wide mb-1.5">
+                                                    Tiện ích mong muốn:
+                                                </span>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {profile.preference.must_have_amenities.map((am) => (
+                                                        <span key={am} className="text-xs font-medium px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                                                            {am}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="h-px bg-slate-100" />
 

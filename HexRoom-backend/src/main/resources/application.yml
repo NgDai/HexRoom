@@ -43,6 +43,16 @@ app:
   cors:
     allowed-origins: ${CORS_ORIGIN:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174}
 
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:hexroom}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+    url: ${CLOUDINARY_URL:}
+
+  media:
+    directory: ${MEDIA_DIRECTORY:.data/uploads}
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:${server.port:8080}}
+
 springdoc:
   api-docs:
     path: /v3/api-docs

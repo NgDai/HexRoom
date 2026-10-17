@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Hexagon, ShieldCheck, HeartHandshake, MapPin, Mail, Phone } from 'lucide-react';
+import { ShieldCheck, HeartHandshake, MapPin, Mail, Phone } from 'lucide-react';
 
 export function Footer() {
     return (
@@ -7,7 +7,8 @@ export function Footer() {
             <div className="hx-footer-inner">
                 <div className="hx-footer-col">
                     <Link className="hx-brand" to="/home">
-                        <Hexagon size={28} strokeWidth={2.5} /> HexRoom<span className="hx-brand-dot">.</span>
+                        <img src="/hexroom-logo.png" alt="HexRoom" className="w-8 h-8 object-contain shrink-0" />
+                        <span>HexRoom</span>
                     </Link>
                     <p style={{ marginTop: 14, color: '#64748b', fontSize: 13, lineHeight: 1.7, maxWidth: 380 }}>
                         Nền tảng công nghệ kết nối thuê phòng trọ và tìm bạn cùng phòng minh bạch hàng đầu Việt Nam. Đối chiếu hiện trạng, không phí ẩn và hỗ trợ tận tâm.

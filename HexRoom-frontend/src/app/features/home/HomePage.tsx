@@ -8,7 +8,38 @@ import {
 import { Header, Footer } from './components';
 import { request, money, type ApiRoom, type Page } from '@/lib/hexroom-api';
 import { POPULAR_LOCATIONS, FILTER_ROOM_TYPES, FILTER_PRICE_PRESETS, FILTER_SIZE_PRESETS, FILTER_AMENITIES } from '@/lib/constants/room-filters';
-import { MOCK_ROOMS_DATA, MOCK_SEEKERS_DATA, MOCK_POPULAR_AREAS } from '@/lib/mock-data';
+import { getRoommateSuggestionsRequest, type RoommateSuggestionItem } from '@/lib/api';
+
+const POPULAR_AREAS = [
+    {
+        district: 'Quận Bình Thạnh',
+        city: 'Hồ Chí Minh',
+        priceRange: '2.5 - 7.5 triệu',
+        image: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800&auto=format&fit=crop&q=80',
+        highlight: 'Gần nhiều trường ĐH lớn, sát Quận 1',
+    },
+    {
+        district: 'Quận 7',
+        city: 'Hồ Chí Minh',
+        priceRange: '3.2 - 9.0 triệu',
+        image: 'https://images.unsplash.com/photo-1502005229762-ee152da915ba?w=800&auto=format&fit=crop&q=80',
+        highlight: 'Khu Phú Mỹ Hưng, không khí thoáng mát',
+    },
+    {
+        district: 'Quận Cầu Giấy',
+        city: 'Hà Nội',
+        priceRange: '2.8 - 6.5 triệu',
+        image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&fit=crop&q=80',
+        highlight: 'Thủ phủ sinh viên & các tòa nhà văn phòng',
+    },
+    {
+        district: 'TP. Thủ Đức',
+        city: 'Hồ Chí Minh',
+        priceRange: '2.0 - 5.5 triệu',
+        image: 'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?w=800&auto=format&fit=crop&q=80',
+        highlight: 'Khu Làng Đại Học, Khu Công Nghệ Cao',
+    },
+];
 
 const quickPrinciples = [
     {
@@ -39,6 +70,7 @@ export function HomePage() {
     const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
     const [onlyVerified, setOnlyVerified] = useState(false);
     const [rooms, setRooms] = useState<ApiRoom[]>([]);
+    const [roommateSeekers, setRoommateSeekers] = useState<RoommateSuggestionItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeSort, setActiveSort] = useState<'all' | 'cheap' | 'studio'>('all');
     const [heroIndex, setHeroIndex] = useState(0);
@@ -46,22 +78,28 @@ export function HomePage() {
 
     useEffect(() => {
         let active = true;
-        // Fetch rooms from backend, fallback seamlessly to rich mock data if empty or offline
+        setLoading(true);
         request<Page<ApiRoom>>('/rooms?limit=12')
             .then(data => {
                 if (active) {
-                    if (data?.items && data.items.length > 0) {
-                        setRooms(data.items);
-                    } else {
-                        setRooms(MOCK_ROOMS_DATA);
-                    }
+                    setRooms(data?.items || []);
                 }
             })
             .catch(() => {
-                if (active) setRooms(MOCK_ROOMS_DATA);
+                if (active) setRooms([]);
             })
             .finally(() => {
                 if (active) setLoading(false);
+            });
+
+        getRoommateSuggestionsRequest(4)
+            .then(res => {
+                if (active && res.data) {
+                    setRoommateSeekers(res.data);
+                }
+            })
+            .catch(() => {
+                if (active) setRoommateSeekers([]);
             });
 
         return () => { active = false; };
@@ -117,8 +155,8 @@ export function HomePage() {
         return () => clearInterval(timer);
     }, [rooms.length]);
 
-    const heroRooms = rooms.length > 0 ? rooms.slice(0, 6) : MOCK_ROOMS_DATA.slice(0, 6);
-    const currentHero = heroRooms[heroIndex % heroRooms.length] || heroRooms[0];
+    const heroRooms = rooms.slice(0, 6);
+    const currentHero = heroRooms.length > 0 ? (heroRooms[heroIndex % heroRooms.length] || heroRooms[0]) : null;
 
     return (
         <div className="hx-page">
@@ -290,9 +328,9 @@ export function HomePage() {
                     <div className="hx-hero-showcase" aria-label="Căn hộ studio xác minh thực tế">
                         <div className="hx-showcase-image-wrap">
                             <img
-                                key={currentHero.id}
-                                src={currentHero.images?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80'}
-                                alt={currentHero.roomName}
+                                key={currentHero?.id || 'default-hero'}
+                                src={currentHero?.images?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80'}
+                                alt={currentHero?.roomName || 'HexRoom'}
                                 className="hx-showcase-image"
                                 onError={(e) => {
                                     (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80';
@@ -303,7 +341,7 @@ export function HomePage() {
                             {/* Top Floating Badges */}
                             <div className="hx-showcase-top">
                                 <span className="hx-showcase-tag">
-                                    <MapPin size={13} /> {[currentHero.district, currentHero.city].filter(Boolean).join(', ') || 'Bình Thạnh, TP.HCM'}
+                                    <MapPin size={13} /> {[currentHero?.district, currentHero?.city].filter(Boolean).join(', ') || 'Hồ Chí Minh & Hà Nội'}
                                 </span>
                                 <span className="hx-showcase-verified">
                                     <CheckCircle2 size={13} /> 100% ĐÃ ĐỐI CHIẾU
@@ -311,62 +349,66 @@ export function HomePage() {
                             </div>
 
                             {/* Carousel Next/Prev Controls */}
-                            <div className="hx-hero-carousel-controls">
-                                <button
-                                    type="button"
-                                    className="hx-carousel-btn"
-                                    onClick={() => setHeroIndex(prev => (prev - 1 + heroRooms.length) % heroRooms.length)}
-                                    aria-label="Phòng trước"
-                                >
-                                    <ChevronLeft size={18} />
-                                </button>
-                                <button
-                                    type="button"
-                                    className="hx-carousel-btn"
-                                    onClick={() => setHeroIndex(prev => (prev + 1) % heroRooms.length)}
-                                    aria-label="Phòng tiếp theo"
-                                >
-                                    <ChevronRight size={18} />
-                                </button>
-                            </div>
+                            {heroRooms.length > 1 && (
+                                <>
+                                    <div className="hx-hero-carousel-controls">
+                                        <button
+                                            type="button"
+                                            className="hx-carousel-btn"
+                                            onClick={() => setHeroIndex(prev => (prev - 1 + heroRooms.length) % heroRooms.length)}
+                                            aria-label="Phòng trước"
+                                        >
+                                            <ChevronLeft size={18} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="hx-carousel-btn"
+                                            onClick={() => setHeroIndex(prev => (prev + 1) % heroRooms.length)}
+                                            aria-label="Phòng tiếp theo"
+                                        >
+                                            <ChevronRight size={18} />
+                                        </button>
+                                    </div>
 
-                            {/* Carousel Indicator Dots */}
-                            <div className="hx-carousel-dots">
-                                {heroRooms.map((r, i) => (
-                                    <button
-                                        key={r.id}
-                                        type="button"
-                                        className={`hx-carousel-dot ${i === (heroIndex % heroRooms.length) ? 'active' : ''}`}
-                                        onClick={() => setHeroIndex(i)}
-                                        aria-label={`Chuyển đến phòng ${i + 1}`}
-                                    />
-                                ))}
-                            </div>
+                                    {/* Carousel Indicator Dots */}
+                                    <div className="hx-carousel-dots">
+                                        {heroRooms.map((r, i) => (
+                                            <button
+                                                key={r.id}
+                                                type="button"
+                                                className={`hx-carousel-dot ${i === (heroIndex % heroRooms.length) ? 'active' : ''}`}
+                                                onClick={() => setHeroIndex(i)}
+                                                aria-label={`Chuyển đến phòng ${i + 1}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
 
                             {/* Bottom Floating Glass Card */}
-                            <Link to={`/room/${currentHero.id}`} className="hx-showcase-card" style={{ textDecoration: 'none', display: 'block' }}>
+                            <Link to={currentHero ? `/room/${currentHero.id}` : '/rooms'} className="hx-showcase-card" style={{ textDecoration: 'none', display: 'block' }}>
                                 <div className="hx-showcase-card-header">
                                     <div className="hx-showcase-price">
-                                        <strong>{money(currentHero.price)}</strong>
-                                        <span> / tháng</span>
+                                        <strong>{currentHero ? money(currentHero.price) : 'Giá tốt'}</strong>
+                                        {currentHero && <span> / tháng</span>}
                                     </div>
                                     <span className="hx-showcase-area">
-                                        {currentHero.sizeM2 ?? 35}m² · {currentHero.roomType === 'STUDIO' ? 'Studio' : currentHero.roomType === 'SHARED' ? 'Ở ghép' : 'Khép kín'}
+                                        {currentHero ? `${currentHero.sizeM2 ?? 35}m² · ${currentHero.roomType === 'STUDIO' ? 'Studio' : currentHero.roomType === 'SHARED' ? 'Ở ghép' : 'Khép kín'}` : 'Minh bạch 100%'}
                                     </span>
                                 </div>
 
                                 <h3 style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', margin: '0 0 10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {currentHero.roomName || currentHero.rentalTitle}
+                                    {currentHero?.roomName || currentHero?.rentalTitle || 'Không gian sống được kiểm định thực tế'}
                                 </h3>
 
                                 <div className="hx-showcase-metrics">
                                     <div className="hx-metric-item">
                                         <ClipboardCheck size={14} color="#10B981" />
-                                        <span>Điện: {currentHero.costs?.electricityPerKwh ? money(currentHero.costs.electricityPerKwh) + '/kWh' : '3.500đ/kWh'}</span>
+                                        <span>Điện: {currentHero?.costs?.electricityPerKwh ? money(currentHero.costs.electricityPerKwh) + '/kWh' : '3.500đ/kWh'}</span>
                                     </div>
                                     <div className="hx-metric-item">
                                         <ReceiptText size={14} color="#10B981" />
-                                        <span>Nước: {currentHero.costs?.waterPerM3 ? money(currentHero.costs.waterPerM3) + '/m³' : '20.000đ/m³'}</span>
+                                        <span>Nước: {currentHero?.costs?.waterPerM3 ? money(currentHero.costs.waterPerM3) + '/m³' : '20.000đ/m³'}</span>
                                     </div>
                                     <div className="hx-metric-item">
                                         <ShieldCheck size={14} color="#10B981" />
@@ -747,7 +789,7 @@ export function HomePage() {
                                         <Users size={18} color="#10B981" /> Tìm bạn ở ghép
                                     </h3>
                                     <Link to="/roommate" style={{ fontSize: 12, fontWeight: 700, color: '#059669', textDecoration: 'none' }}>
-                                        Xem tất cả ({MOCK_SEEKERS_DATA.length}) →
+                                        Xem tất cả ({roommateSeekers.length}) →
                                     </Link>
                                 </div>
                                 <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 16px' }}>
@@ -755,62 +797,77 @@ export function HomePage() {
                                 </p>
 
                                 <div>
-                                    {MOCK_SEEKERS_DATA.slice(0, 4).map((seeker) => (
-                                        <div key={seeker.id} className="hx-seeker-card">
-                                            <div className="hx-seeker-header">
-                                                <img
-                                                    src={seeker.avatarUrl}
-                                                    alt={seeker.fullName}
-                                                    className="hx-seeker-avatar"
-                                                    onError={(e) => {
-                                                        (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
-                                                    }}
-                                                />
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                        <h4 className="hx-seeker-name">{seeker.fullName}</h4>
-                                                        <span className="hx-match-badge">
-                                                            <Sparkles size={11} /> {seeker.matchScore}%
-                                                        </span>
-                                                    </div>
-                                                    <p className="hx-seeker-meta">
-                                                        {seeker.age} tuổi · {seeker.gender} · {seeker.university || seeker.occupation}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="hx-seeker-budget">
-                                                <Banknote size={14} /> Ngân sách: {money(seeker.budgetMin)} - {money(seeker.budgetMax)}
-                                            </div>
-
-                                            <div className="hx-seeker-tags">
-                                                <span className="hx-seeker-tag">{seeker.lifestyle.sleepSchedule}</span>
-                                                <span className="hx-seeker-tag">{seeker.lifestyle.cleanliness}</span>
-                                                {seeker.lifestyle.smoking === false && (
-                                                    <span className="hx-seeker-tag" style={{ color: '#059669', background: '#ECFDF5' }}>Không hút thuốc</span>
-                                                )}
-                                            </div>
-
-                                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                                                <Link
-                                                    to="/roommate"
-                                                    style={{
-                                                        flex: 1,
-                                                        textAlign: 'center',
-                                                        padding: '7px 10px',
-                                                        fontSize: 12,
-                                                        fontWeight: 600,
-                                                        borderRadius: 8,
-                                                        background: '#10B981',
-                                                        color: '#fff',
-                                                        textDecoration: 'none'
-                                                    }}
-                                                >
-                                                    Nhắn tin trao đổi
-                                                </Link>
-                                            </div>
+                                    {roommateSeekers.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '24px 8px', color: '#64748B', fontSize: 13 }}>
+                                            Chưa có hồ sơ tìm bạn ở ghép.
                                         </div>
-                                    ))}
+                                    ) : (
+                                        roommateSeekers.slice(0, 4).map((seeker) => {
+                                            const user = seeker.user;
+                                            const pref = seeker.preference;
+                                            const life = seeker.lifestyle;
+                                            return (
+                                                <div key={user.id} className="hx-seeker-card">
+                                                    <div className="hx-seeker-header">
+                                                        <img
+                                                            src={user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'}
+                                                            alt={user.fullName}
+                                                            className="hx-seeker-avatar"
+                                                            onError={(e) => {
+                                                                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
+                                                            }}
+                                                        />
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                <h4 className="hx-seeker-name">{user.fullName}</h4>
+                                                                {seeker.matchScore > 0 && (
+                                                                    <span className="hx-match-badge">
+                                                                        <Sparkles size={11} /> {seeker.matchScore}%
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="hx-seeker-meta">
+                                                                {user.gender || 'Thành viên'} {pref?.preferredLocation ? `· ${pref.preferredLocation}` : ''}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {(pref?.budget_min != null || pref?.budget_max != null) && (
+                                                        <div className="hx-seeker-budget">
+                                                            <Banknote size={14} /> Ngân sách: {money(pref.budget_min ?? 0)} - {money(pref.budget_max ?? 0)}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="hx-seeker-tags">
+                                                        {life?.sleep_schedule && <span className="hx-seeker-tag">{life.sleep_schedule}</span>}
+                                                        {life?.cleanliness && <span className="hx-seeker-tag">{life.cleanliness}</span>}
+                                                        {life?.smoking === false && (
+                                                            <span className="hx-seeker-tag" style={{ color: '#059669', background: '#ECFDF5' }}>Không hút thuốc</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                                                        <Link
+                                                            to={`/roommate?user=${user.id}`}
+                                                            style={{
+                                                                flex: 1,
+                                                                textAlign: 'center',
+                                                                padding: '7px 10px',
+                                                                fontSize: 12,
+                                                                fontWeight: 600,
+                                                                borderRadius: 8,
+                                                                background: '#10B981',
+                                                                color: '#fff',
+                                                                textDecoration: 'none'
+                                                            }}
+                                                        >
+                                                            Nhắn tin trao đổi
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                                 </div>
 
                                 <div style={{ background: '#F8FAF9', borderRadius: 14, padding: 16, border: '1px dashed #CBD5E1', textAlign: 'center', marginTop: 16 }}>
@@ -841,7 +898,7 @@ export function HomePage() {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
-                        {MOCK_POPULAR_AREAS.map((area) => (
+                        {POPULAR_AREAS.map((area) => (
                             <Link
                                 key={area.district}
                                 to={`/rooms?district=${encodeURIComponent(area.district)}&city=${encodeURIComponent(area.city)}`}
@@ -872,7 +929,7 @@ export function HomePage() {
                                         {area.district}
                                     </h3>
                                     <p style={{ fontSize: 12, opacity: 0.9, margin: '0 0 6px', color: '#D1FAE5' }}>
-                                        {area.city} · {area.count} phòng có sẵn
+                                        {area.city} · {area.highlight}
                                     </p>
                                     <span style={{ fontSize: 11, background: 'rgba(16, 185, 129, 0.85)', padding: '3px 8px', borderRadius: 6, fontWeight: 600 }}>
                                         Giá tb: {area.priceRange}

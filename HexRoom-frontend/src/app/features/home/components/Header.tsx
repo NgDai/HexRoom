@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Hexagon, Menu, X, ArrowUpRight } from 'lucide-react';
+import { Menu, X, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '@/app/context/useAuth';
 import '@/app/features/hexroom/hexroom.css';
 
@@ -10,7 +10,10 @@ export function Header({ onLogin, onRegister }: { onLogin?: () => void; onRegist
     const [open, setOpen] = useState(false);
     const [error, setError] = useState('');
     return <header className="hx-header"><div className="hx-nav-wrap">
-        <Link className="hx-brand" to="/home"><Hexagon size={30} strokeWidth={2.5} /> HexRoom<span className="hx-brand-dot">.</span></Link>
+        <Link className="hx-brand" to="/home">
+            <img src="/hexroom-logo.png" alt="HexRoom" className="w-8 h-8 object-contain shrink-0" />
+            <span>HexRoom</span>
+        </Link>
         <button className="hx-mobile-toggle" aria-label="Mở menu" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button>
         <nav className={'hx-nav ' + (open ? 'is-open' : '')} aria-label="Điều hướng chính">
             {/* Luôn hiển thị cho mọi vai trò */}
@@ -33,9 +36,9 @@ export function Header({ onLogin, onRegister }: { onLogin?: () => void; onRegist
             {user && ['LANDLORD', 'ADMIN'].includes(user.role ?? '') && (
                 <>
                     <NavLink to="/workspace">Quản lý phòng</NavLink>
-                    <NavLink to="/workspace?mode=room" style={{ color: '#059669', fontWeight: 750, background: '#ECFDF5', padding: '6px 14px', borderRadius: '999px', border: '1px solid #A7F3D0' }}>
+                    <Link to="/workspace?mode=room" className="hx-nav-post-pill" style={{ color: '#059669', fontWeight: 750, background: '#ECFDF5', padding: '6px 14px', borderRadius: '999px', border: '1px solid #A7F3D0' }}>
                         ＋ Đăng phòng trọ
-                    </NavLink>
+                    </Link>
                 </>
             )}
 

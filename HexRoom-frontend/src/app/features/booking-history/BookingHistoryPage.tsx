@@ -22,6 +22,7 @@ import {
     ReportModal,
     EmptyState,
 } from './components';
+import { useAuth } from '@/app/context/useAuth';
 import { type BookingTabValue } from './constants';
 import { filterBookings } from './utils';
 import {
@@ -36,95 +37,9 @@ import type { FeedbackStatus } from './types';
 
 type ModalState = 'none' | 'review' | 'viewFeedback' | 'report';
 
-const DEFAULT_MOCK_APPOINTMENTS: Booking[] = [
-    {
-        id: 'HXR-APPT-101',
-        roomId: 'room-001',
-        roomName: 'Studio Ban Công Thoáng Mát — Full Nội Thất Cao Cấp',
-        propertyName: 'Tòa nhà căn hộ dịch vụ HexHouse Bình Thạnh',
-        propertyImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80',
-        address: '152/24 Nguyễn Gia Trí (D2 cũ), Phường 25, Quận Bình Thạnh, TP.HCM',
-        landlordName: 'Cô Nguyễn Thị Hoa',
-        landlordPhone: '0908 123 456',
-        startDate: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        appointmentDate: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        appointmentTime: '09:30 - 11:30 (Buổi sáng)',
-        bookingType: 'VIEWING',
-        status: 'upcoming',
-        price: 5200000,
-        notes: 'Khách hẹn gặp tại quầy lễ tân tòa nhà, vui lòng gọi điện trước 15 phút.',
-        hasReview: false,
-        canReview: false,
-    },
-    {
-        id: 'HXR-APPT-102',
-        roomId: 'room-002',
-        roomName: 'Phòng Gác Lửng Đúc Hiện Đại — Gần ĐH Ngoại Thương & HUTECH',
-        propertyName: 'Khu Trọ An Ninh D5 Bình Thạnh',
-        propertyImage: 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=800&auto=format&fit=crop&q=80',
-        address: '48 Đường D5, Phường 25, Quận Bình Thạnh, TP.HCM',
-        landlordName: 'Anh Trần Văn Hùng',
-        landlordPhone: '0912 345 678',
-        startDate: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        appointmentDate: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        appointmentTime: '15:00 - 16:30 (Buổi chiều)',
-        bookingType: 'VIEWING',
-        status: 'upcoming',
-        price: 3600000,
-        notes: 'Chủ trọ sẽ trực tiếp dẫn khách lên xem phòng số 203 lầu 2.',
-        hasReview: false,
-        canReview: false,
-    },
-    {
-        id: 'HXR-APPT-088',
-        roomId: 'room-003',
-        roomName: 'Căn Hộ Mini 1PN Riêng Biệt — View Landmark 81',
-        propertyName: 'Tòa Nhà Xanh Ung Văn Khiêm',
-        propertyImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80',
-        address: '26 Ung Văn Khiêm, Phường 25, Quận Bình Thạnh, TP.HCM',
-        landlordName: 'Chị Mai Phương',
-        landlordPhone: '0938 789 012',
-        startDate: '2026-10-10',
-        endDate: '2027-04-10',
-        appointmentDate: '2026-10-10',
-        appointmentTime: '10:00 - 11:30',
-        viewedDate: '10/10/2026',
-        bookingType: 'VIEWING',
-        status: 'completed',
-        price: 4800000,
-        notes: 'Đã hoàn thành xem phòng thực tế.',
-        hasReview: true,
-        userRating: 5,
-        feedbackStatus: 'APPROVED',
-        canReview: false,
-    },
-    {
-        id: 'HXR-APPT-085',
-        roomId: 'room-004',
-        roomName: 'Phòng Trọ Tiện Nghi Ban Công View Landmark 81',
-        propertyName: 'HexHouse Xô Viết Nghệ Tĩnh',
-        propertyImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=80',
-        address: '215 Xô Viết Nghệ Tĩnh, Phường 17, Quận Bình Thạnh, TP.HCM',
-        landlordName: 'Chú Hoàng Nam',
-        landlordPhone: '0903 654 987',
-        startDate: '2026-10-05',
-        endDate: '2027-04-05',
-        appointmentDate: '2026-10-05',
-        appointmentTime: '14:30 - 15:30',
-        viewedDate: '05/10/2026',
-        bookingType: 'VIEWING',
-        status: 'completed',
-        price: 4200000,
-        notes: 'Đã hoàn thành xem phòng.',
-        hasReview: false,
-        canReview: true,
-    },
-];
-
 export function BookingHistoryPage() {
     const navigate = useNavigate();
+    const { user, isLoading: authLoading } = useAuth();
 
     // Default tab: 'upcoming'
     const [activeTab, setActiveTab] = React.useState<BookingTabValue>('upcoming');
@@ -155,13 +70,33 @@ export function BookingHistoryPage() {
         setLoading(true);
         setError(null);
         try {
+            if (!user) {
+                setBookings([]);
+                setLoading(false);
+                return;
+            }
+
+            const userEmail = (user.email || '').toLowerCase().trim();
+            const userPhone = (user.phone || '').trim();
+            const cleanUserPhone = userPhone.replace(/\D/g, '');
+            const userId = user.id;
+
             const localRaw = localStorage.getItem('hexroom_local_bookings');
             let localItems: Booking[] = localRaw ? JSON.parse(localRaw) : [];
+            // Filter out any previous mock appointments
+            localItems = localItems.filter((b) => !b.id.startsWith('HXR-APPT-'));
 
-            if (localItems.length === 0) {
-                localItems = DEFAULT_MOCK_APPOINTMENTS;
-                localStorage.setItem('hexroom_local_bookings', JSON.stringify(localItems));
-            }
+            // Chỉ lấy các lịch hẹn xem phòng / đặt phòng thuộc về tài khoản đang đăng nhập
+            const myLocalItems = localItems.filter((b) => {
+                if (b.userId && userId && b.userId === userId) return true;
+                if (b.tenantId && userId && b.tenantId === userId) return true;
+                if (b.tenantEmail && userEmail && b.tenantEmail.toLowerCase().trim() === userEmail) return true;
+                if (b.tenantPhone && cleanUserPhone) {
+                    const cleanPhone = b.tenantPhone.replace(/\D/g, '');
+                    if (cleanPhone && cleanPhone === cleanUserPhone) return true;
+                }
+                return false;
+            });
 
             try {
                 const res = await getMyBookingsRequest();
@@ -172,22 +107,24 @@ export function BookingHistoryPage() {
                 })) as Booking[];
 
                 const map = new Map<string, Booking>();
-                localItems.forEach((b) => map.set(b.id, b));
+                myLocalItems.forEach((b) => map.set(b.id, b));
                 apiItems.forEach((b) => map.set(b.id, b));
                 setBookings(Array.from(map.values()));
             } catch {
-                setBookings(localItems);
+                setBookings(myLocalItems);
             }
         } catch {
-            setBookings(DEFAULT_MOCK_APPOINTMENTS);
+            setBookings([]);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user]);
 
     React.useEffect(() => {
-        fetchBookings();
-    }, [fetchBookings]);
+        if (!authLoading) {
+            fetchBookings();
+        }
+    }, [fetchBookings, authLoading]);
 
     const filteredBookings = filterBookings(bookings, activeTab);
     const totalPages = Math.ceil(filteredBookings.length / pageSize) || 1;
@@ -200,9 +137,17 @@ export function BookingHistoryPage() {
         );
         if (!confirmed) return;
 
-        const updated = bookings.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' as const } : b));
-        setBookings(updated);
-        localStorage.setItem('hexroom_local_bookings', JSON.stringify(updated));
+        setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' as const } : b)));
+        try {
+            const localRaw = localStorage.getItem('hexroom_local_bookings');
+            if (localRaw) {
+                const allItems: Booking[] = JSON.parse(localRaw);
+                const updatedAll = allItems.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' as const } : b));
+                localStorage.setItem('hexroom_local_bookings', JSON.stringify(updatedAll));
+            }
+        } catch {
+            // ignore
+        }
         if (detailModalBooking?.id === booking.id) {
             setDetailModalBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
         }
@@ -254,13 +199,27 @@ export function BookingHistoryPage() {
     const handleReviewSubmit = async (data: ReviewData) => {
         if (!selectedBooking?.rentalPeriodId || !selectedBooking?.roomId) {
             if (selectedBooking) {
-                const updated = bookings.map((b) =>
-                    b.id === selectedBooking.id
-                        ? { ...b, hasReview: true, userRating: data.rating, feedbackStatus: 'APPROVED' as const }
-                        : b
+                setBookings((prev) =>
+                    prev.map((b) =>
+                        b.id === selectedBooking.id
+                            ? { ...b, hasReview: true, userRating: data.rating, feedbackStatus: 'APPROVED' as const }
+                            : b
+                    )
                 );
-                setBookings(updated);
-                localStorage.setItem('hexroom_local_bookings', JSON.stringify(updated));
+                try {
+                    const localRaw = localStorage.getItem('hexroom_local_bookings');
+                    if (localRaw) {
+                        const allItems: Booking[] = JSON.parse(localRaw);
+                        const updatedAll = allItems.map((b) =>
+                            b.id === selectedBooking.id
+                                ? { ...b, hasReview: true, userRating: data.rating, feedbackStatus: 'APPROVED' as const }
+                                : b
+                        );
+                        localStorage.setItem('hexroom_local_bookings', JSON.stringify(updatedAll));
+                    }
+                } catch {
+                    // ignore
+                }
             }
             setModalState('none');
             setSelectedBooking(null);
@@ -321,10 +280,10 @@ export function BookingHistoryPage() {
     };
 
     return (
-        <div className="hx-page" style={{ background: '#FFFFFF', minHeight: '100vh' }}>
+        <div className="hx-page" style={{ background: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
-            <main className="hx-container hx-section" style={{ paddingTop: 36, paddingBottom: 64 }}>
+            <main className="hx-container hx-section" style={{ paddingTop: 36, paddingBottom: 64, flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
                 {/* Header Title (Không còn nút quay lại theo yêu cầu) */}
                 <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
                     <div>
@@ -824,7 +783,9 @@ export function BookingHistoryPage() {
                 propertyName={selectedBooking?.roomName || selectedBooking?.propertyName || ''}
             />
 
-            <Footer />
+            <div style={{ marginTop: 'auto', width: '100%' }}>
+                <Footer />
+            </div>
         </div>
     );
 }

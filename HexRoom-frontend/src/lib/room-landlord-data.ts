@@ -212,14 +212,14 @@ export const KNOWN_ROOM_METADATA: Record<string, { landlord: RoomLandlordProfile
         }
     },
 
-    // Room 006 - Phòng Trọ Khép Kín Mỹ Đình (Hà Nội) - CHƯA KIỂM ĐỊNH TẠI CHỖ
+    // Room 006 - Phòng Trọ Khép Kín Mỹ Đình (Hà Nội) - MỚI ĐĂNG (CHƯA KIỂM ĐỊNH)
     'room-006': {
         landlord: {
             id: 'host-006',
             fullName: 'Cô Kim Oanh',
             avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80',
             role: 'CHÍNH CHỦ',
-            roleBadge: 'Chủ nhà trực tiếp',
+            roleBadge: 'Chủ nhà tự đăng',
             phone: '0978 901 234',
             isIdentityVerified: false,
             identityBadge: 'Chờ đối chiếu CCCD & Giấy tờ tại chỗ',
@@ -232,7 +232,7 @@ export const KNOWN_ROOM_METADATA: Record<string, { landlord: RoomLandlordProfile
         inspection: {
             isInspected: false,
             status: 'PENDING',
-            statusBadge: 'CHƯA ĐỐI CHIẾU THỰC ĐỊA',
+            statusBadge: 'CHỜ ĐỐI CHIẾU THỰC ĐỊA',
             inspectedDate: undefined,
             inspectorName: undefined,
             checklist: {
@@ -241,7 +241,7 @@ export const KNOWN_ROOM_METADATA: Record<string, { landlord: RoomLandlordProfile
                 images: false,
                 rentalRights: false
             },
-            summary: 'Tin đăng do chủ nhà tự khai báo, chưa qua quy trình kiểm định 4 bước tại chỗ của HexRoom. Khách thuê nên yêu cầu Inspector hỗ trợ.'
+            summary: 'Tin đăng do chủ nhà tự khai báo, đang xếp lịch kiểm định thực địa 4 bước với chuyên viên HexRoom. Người thuê có thể bấm yêu cầu đối chiếu.'
         }
     },
 
@@ -278,7 +278,7 @@ export const KNOWN_ROOM_METADATA: Record<string, { landlord: RoomLandlordProfile
         }
     },
 
-    // Room 008 - Phòng Ở Ghép Sinh Viên ĐHQG (Thủ Đức) - CHƯA KIỂM ĐỊNH TẠI CHỖ
+    // Room 008 - Phòng Ở Ghép Sinh Viên ĐHQG (Thủ Đức) - MỚI ĐĂNG (CHỜ ĐỐI CHIẾU)
     'room-008': {
         landlord: {
             id: 'host-008',

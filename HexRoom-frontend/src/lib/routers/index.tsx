@@ -1,4 +1,4 @@
-import { AccountPage } from '@/app/features/hexroom/AccountPage';
+import { ProfilePage } from '@/app/features/profile';
 import { RoommateDiscoveryPage } from '@/app/features/hexroom/RoommateDiscoveryPage';
 import { RoomTransparencyPage } from '@/app/features/hexroom/RoomTransparencyPage';
 import { HowItWorksPage } from '@/app/features/hexroom/HowItWorksPage';
@@ -35,6 +35,7 @@ const ViewRoomPostDetailPage = lazy(() => import('@/app/features/roomManagement'
 const RequestsPage = lazy(() => import('@/app/features/rentalManagement/requests').then((m) => ({ default: m.RequestsPage })));
 const ReviewsPage = lazy(() => import('@/app/features/rentalManagement/reviews').then((m) => ({ default: m.ReviewsPage })));
 const TenantReviewsPage = lazy(() => import('@/app/features/rentalManagement').then((m) => ({ default: m.TenantReviewsPage })));
+const ViewingHistoryPage = lazy(() => import('@/app/features/rentalManagement/ViewingHistory').then((m) => ({ default: m.ViewingHistoryPage })));
 const EditRentalPage = lazy(() => import('@/app/features/rentalManagement/EditRental/EditRentalPage').then((m) => ({ default: m.EditRentalPage })));
 const EditRoomPostPage = lazy(() => import('@/app/features/roomManagement/EditRoomPost/EditRoomPostPage').then((m) => ({ default: m.EditRoomPostPage })));
 const HandleReportsPage = lazy(() => import('@/app/features/moderator/handle-reports').then((m) => ({ default: m.HandleReportsPage })));
@@ -156,9 +157,13 @@ const routes = [
         path: '/profile',
         element: (
             <ProtectedRoute>
-                <AccountPage />
+                <ProfilePage />
             </ProtectedRoute>
         ),
+    },
+    {
+        path: '/account',
+        loader: () => redirect('/profile'),
     },
      {
         path: '/wallet',
@@ -237,6 +242,7 @@ const routes = [
             { path: 'requests', element: <Suspense fallback={<PageLoader />}><RequestsPage /></Suspense> },
             { path: 'reviews', element: <Suspense fallback={<PageLoader />}><ReviewsPage /></Suspense> },
             { path: 'tenant-reviews', element: <Suspense fallback={<PageLoader />}><TenantReviewsPage /></Suspense> },
+            { path: 'viewing-history', element: <Suspense fallback={<PageLoader />}><ViewingHistoryPage /></Suspense> },
             { path: 'wallet', element: <Suspense fallback={<PageLoader />}><WalletPage /></Suspense> },
             { path: 'messages', element: <Suspense fallback={<PageLoader />}><ChatPage /></Suspense> },
             { path: 'messages/:userId', element: <Suspense fallback={<PageLoader />}><ChatPage /></Suspense> },

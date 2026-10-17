@@ -13,9 +13,23 @@ import java.util.concurrent.TimeUnit;
 @RestController @RequestMapping("/api/media/images") @RequiredArgsConstructor
 public class ImageUploadController {
     private final ImageStorageService service;
+    private final com.hexroom.backend.service.CloudinaryService cloudinaryService;
+
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('LANDLORD','MODERATOR','ADMIN')")
     public ResponseEntity<ApiResponse<ImageStorageService.StoredImage>> upload(@RequestPart("file") MultipartFile file) {
+        if (cloudinaryService.isConfigured()) {
+            try {
+                java.util.Map<String, Object> result = cloudinaryService.upload(file, "hexroom/media");
+                String url = (String) result.getOrDefault("secure_url", result.get("url"));
+                int width = result.get("width") instanceof Number ? ((Number) result.get("width")).intValue() : 0;
+                int height = result.get("height") instanceof Number ? ((Number) result.get("height")).intValue() : 0;
+                long bytes = result.get("bytes") instanceof Number ? ((Number) result.get("bytes")).longValue() : file.getSize();
+                return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(new ImageStorageService.StoredImage(url, width, height, bytes)));
+            } catch (Exception ex) {
+                // fallback to local
+            }
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(service.store(file)));
     }
     @GetMapping("/{filename}")

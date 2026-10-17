@@ -11,6 +11,7 @@ import {
     Star,
     Wallet,
     Users,
+    CalendarCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,7 @@ const items = [
     { label: 'Tổng quan', path: '/rental-management', Icon: LayoutDashboard },
     { label: 'Danh sách nhà cho thuê', path: '/rental-management/rentals', Icon: Building2 },
     { label: 'Yêu cầu', path: '/rental-management/requests', Icon: FileText },
+    { label: 'Lịch sử coi phòng', path: '/rental-management/viewing-history', Icon: CalendarCheck },
     { label: 'Ví tiền', path: '/rental-management/wallet', Icon: Wallet },
     { label: 'Đánh giá phòng', path: '/rental-management/reviews', Icon: Star },
     { label: 'Đánh giá người thuê', path: '/rental-management/tenant-reviews', Icon: Users },

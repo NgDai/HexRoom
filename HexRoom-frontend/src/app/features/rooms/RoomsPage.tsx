@@ -5,7 +5,7 @@ import {
     MapPin, Camera, Search, SlidersHorizontal, ShieldCheck,
     CheckCircle2, Clock, AlertTriangle, Check, Users, Sparkles,
     ChevronRight, Zap, Phone, X, ChevronDown, ChevronUp, RotateCcw, Filter, Building,
-    LayoutGrid, List, Calendar
+    LayoutGrid, List, Calendar, Tag
 } from 'lucide-react';
 import { Header, Footer } from '@/app/features/home/components';
 import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
@@ -28,8 +28,8 @@ import {
     type AmenityFilterItem
 } from '@/lib/constants/room-filters';
 import { mapPublicRoomToFavorite } from '@/lib/utils/mapPublicRoomToFavorite';
-import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
-import { adaptRoom } from '@/lib/room-adapter';
+import { useAuth } from '@/app/context/useAuth';
+import { saveViewingAppointment } from '@/lib/room-viewing-history';
 import {
     getRoomLandlordAndInspection,
     getRoomCostHighlights
@@ -130,12 +130,29 @@ export function RoomsPage() {
         return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
     }, [searchParams]);
 
+    const { user } = useAuth();
     const [viewMode, setViewMode] = useState<'grid' | 'detailed'>('grid');
     const [bookingRoom, setBookingRoom] = useState<PublicRoomItem | null>(null);
     const [bookingSuccess, setBookingSuccess] = useState(false);
-    const [bookingData, setBookingData] = useState({ date: 'tomorrow', timeSlot: '14:00 - 16:00', phone: '', name: '', note: '' });
+    const [bookingData, setBookingData] = useState({
+        date: 'tomorrow',
+        timeSlot: '14:00 - 16:00',
+        phone: '',
+        name: '',
+        note: '',
+    });
 
-    const [isFilterExpanded, setIsFilterExpanded] = useState(true);
+    useEffect(() => {
+        if (user) {
+            setBookingData((prev) => ({
+                ...prev,
+                name: prev.name || user.fullName || '',
+                phone: prev.phone || user.phone || '',
+            }));
+        }
+    }, [user]);
+
+    const [isFilterExpanded, setIsFilterExpanded] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
     const [draftMinSize, setDraftMinSize] = useState(minSizeFromUrl != null ? String(minSizeFromUrl) : '');
     const [draftMaxSize, setDraftMaxSize] = useState(maxSizeFromUrl != null ? String(maxSizeFromUrl) : '');
     const [searchCity, setSearchCity] = useState(cityFromUrl);
@@ -176,116 +193,6 @@ export function RoomsPage() {
         let active = true;
         setLoadError('');
 
-        const fallbackToMock = () => {
-            let list = [...MOCK_ROOMS_DATA];
-
-            // Prepend locally created rooms from this browser
-            try {
-                const customRooms = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
-                if (Array.isArray(customRooms) && customRooms.length > 0) {
-                    list = [...customRooms, ...list];
-                }
-            } catch {
-                // ignore
-            }
-
-            const allAdapted = list.map(adaptRoom);
-            setAllAvailableRooms(allAdapted);
-
-            if (roomTypeFromUrl) {
-                const rt = roomTypeFromUrl.toLowerCase();
-                list = list.filter((r) => r.roomType.toLowerCase().includes(rt) || rt.includes(r.roomType.toLowerCase()));
-            }
-            if (minPriceFromUrl != null) {
-                list = list.filter((r) => r.price >= minPriceFromUrl);
-            }
-            if (maxPriceFromUrl != null) {
-                list = list.filter((r) => r.price <= maxPriceFromUrl);
-            }
-            if (minSizeFromUrl != null) {
-                list = list.filter((r) => (r.sizeM2 ?? 0) >= minSizeFromUrl);
-            }
-            if (maxSizeFromUrl != null) {
-                list = list.filter((r) => (r.sizeM2 ?? 0) <= maxSizeFromUrl);
-            }
-            if (keywordFromUrl) {
-                const q = keywordFromUrl.toLowerCase();
-                list = list.filter((r) =>
-                    (r.roomName || '').toLowerCase().includes(q) ||
-                    (r.description || '').toLowerCase().includes(q) ||
-                    (r.district || '').toLowerCase().includes(q) ||
-                    (r.address || '').toLowerCase().includes(q)
-                );
-            }
-            if (cityFromUrl) {
-                const c = cityFromUrl.toLowerCase();
-                list = list.filter((r) => (r.city || '').toLowerCase().includes(c));
-            }
-            if (districtFromUrl) {
-                const d = districtFromUrl.toLowerCase();
-                list = list.filter((r) => (r.district || '').toLowerCase().includes(d));
-            }
-            if (universityFromUrl) {
-                const uni = POPULAR_UNIVERSITIES.find(u => u.id === universityFromUrl);
-                if (uni) {
-                    const uniTerm = uni.shortName.toLowerCase();
-                    const uniDist = uni.district.toLowerCase();
-                    list = list.filter(r => 
-                        (r.district || '').toLowerCase().includes(uniDist) ||
-                        (r.roomName || '').toLowerCase().includes(uniTerm) ||
-                        (r.description || '').toLowerCase().includes(uniTerm) ||
-                        (r.address || '').toLowerCase().includes(uniDist)
-                    );
-                }
-            }
-
-            if (policiesFromUrl.length > 0) {
-                list = list.filter(r => {
-                    const text = ((r.description || '') + ' ' + (r.amenities || []).map((a: any) => typeof a === 'string' ? a : a.name).join(' ')).toLowerCase();
-                    return policiesFromUrl.every(pId => {
-                        const pol = FILTER_POLICIES.find(p => p.id === pId);
-                        return pol ? text.includes(pol.keyword.toLowerCase()) : true;
-                    });
-                });
-            }
-
-            if (targetTenantFromUrl === 'female_only') {
-                list = list.filter(r => (r.description || '').toLowerCase().includes('nữ'));
-            } else if (targetTenantFromUrl === 'male_only') {
-                list = list.filter(r => (r.description || '').toLowerCase().includes('nam'));
-            } else if (targetTenantFromUrl === 'student') {
-                list = list.filter(r => (r.price <= 4500000) || (r.description || '').toLowerCase().includes('sinh viên'));
-            }
-
-            if (amenitiesFromUrl.length > 0) {
-                list = list.filter((r) => {
-                    const roomAmenities = (r.amenities || []).map(a => typeof a === 'string' ? a : (a as any).name);
-                    return amenitiesFromUrl.every(req =>
-                        roomAmenities.some(ra => ra.toLowerCase().includes(req.toLowerCase()))
-                    );
-                });
-            }
-
-            // Filter by inspection status
-            if (inspectionFromUrl === 'verified') {
-                list = list.filter((r) => getRoomLandlordAndInspection(r).inspection.isInspected);
-            } else if (inspectionFromUrl === 'pending') {
-                list = list.filter((r) => !getRoomLandlordAndInspection(r).inspection.isInspected);
-            }
-
-            if (sortFromUrl === 'price_asc') {
-                list = [...list].sort((a, b) => a.price - b.price);
-            } else if (sortFromUrl === 'price_desc') {
-                list = [...list].sort((a, b) => b.price - a.price);
-            } else if (sortFromUrl === 'size_desc') {
-                list = [...list].sort((a, b) => (b.sizeM2 ?? 0) - (a.sizeM2 ?? 0));
-            }
-
-            const adapted = list.map(adaptRoom);
-            setRooms(adapted);
-            setPagination({ page: 1, limit: PAGE_SIZE, total: adapted.length, pages: Math.ceil(adapted.length / PAGE_SIZE) });
-        };
-
         getPublicRoomsRequest({
             page: pageFromUrl,
             limit: PAGE_SIZE,
@@ -301,61 +208,110 @@ export function RoomsPage() {
         })
             .then((res) => {
                 if (!active) return;
-                if (res.data && res.data.length > 0) {
-                    setAllAvailableRooms(res.data);
-                    let items = res.data;
-                    if (inspectionFromUrl === 'verified') {
-                        items = items.filter((r) => getRoomLandlordAndInspection(r).inspection.isInspected);
-                    } else if (inspectionFromUrl === 'pending') {
-                        items = items.filter((r) => !getRoomLandlordAndInspection(r).inspection.isInspected);
-                    }
-                    if (districtFromUrl) {
-                        const d = districtFromUrl.toLowerCase();
-                        items = items.filter((r) => (r.district || '').toLowerCase().includes(d));
-                    }
-                    if (universityFromUrl) {
-                        const uni = POPULAR_UNIVERSITIES.find(u => u.id === universityFromUrl);
-                        if (uni) {
-                            const uniDist = uni.district.toLowerCase();
-                            const uniTerm = uni.shortName.toLowerCase();
-                            items = items.filter(r => 
+                const rawItems = res.data || [];
+                setAllAvailableRooms(rawItems);
+                let items = [...rawItems];
+
+                if (inspectionFromUrl === 'verified') {
+                    items = items.filter((r) => getRoomLandlordAndInspection(r).inspection.isInspected);
+                } else if (inspectionFromUrl === 'pending') {
+                    items = items.filter((r) => !getRoomLandlordAndInspection(r).inspection.isInspected);
+                }
+
+                if (districtFromUrl) {
+                    const d = districtFromUrl.toLowerCase();
+                    items = items.filter((r) => (r.district || '').toLowerCase().includes(d));
+                }
+
+                if (universityFromUrl) {
+                    const uni = POPULAR_UNIVERSITIES.find((u) => u.id === universityFromUrl);
+                    if (uni) {
+                        const uniDist = uni.district.toLowerCase();
+                        const uniTerm = uni.shortName.toLowerCase();
+                        items = items.filter(
+                            (r) =>
                                 (r.district || '').toLowerCase().includes(uniDist) ||
                                 (r.roomName || '').toLowerCase().includes(uniTerm) ||
                                 (r.description || '').toLowerCase().includes(uniTerm) ||
                                 (r.address || '').toLowerCase().includes(uniDist)
-                            );
-                        }
+                        );
                     }
-
-                    if (policiesFromUrl.length > 0) {
-                        items = items.filter(r => {
-                            const text = ((r.description || '') + ' ' + (r.amenities || []).map((a: any) => typeof a === 'string' ? a : a.name).join(' ')).toLowerCase();
-                            return policiesFromUrl.every(pId => {
-                                const pol = FILTER_POLICIES.find(p => p.id === pId);
-                                return pol ? text.includes(pol.keyword.toLowerCase()) : true;
-                            });
-                        });
-                    }
-
-                    if (amenitiesFromUrl.length > 0) {
-                        items = items.filter((r) => {
-                            const rAms = (r.amenities || []).map(a => typeof a === 'string' ? a : a.name);
-                            return amenitiesFromUrl.every(req => rAms.some(ra => ra.toLowerCase().includes(req.toLowerCase())));
-                        });
-                    }
-                    setRooms(items);
-                    setPagination(res.pagination || { page: 1, limit: PAGE_SIZE, total: items.length, pages: Math.ceil(items.length / PAGE_SIZE) });
-                } else {
-                    fallbackToMock();
                 }
+
+                if (policiesFromUrl.length > 0) {
+                    items = items.filter((r) => {
+                        const text = (
+                            (r.description || '') +
+                            ' ' +
+                            (r.amenities || []).map((a: any) => (typeof a === 'string' ? a : a.name)).join(' ')
+                        ).toLowerCase();
+                        return policiesFromUrl.every((pId) => {
+                            const pol = FILTER_POLICIES.find((p) => p.id === pId);
+                            return pol ? text.includes(pol.keyword.toLowerCase()) : true;
+                        });
+                    });
+                }
+
+                if (targetTenantFromUrl === 'female_only') {
+                    items = items.filter((r) => (r.description || '').toLowerCase().includes('nữ'));
+                } else if (targetTenantFromUrl === 'male_only') {
+                    items = items.filter((r) => (r.description || '').toLowerCase().includes('nam'));
+                } else if (targetTenantFromUrl === 'student') {
+                    items = items.filter(
+                        (r) => r.price <= 4500000 || (r.description || '').toLowerCase().includes('sinh viên')
+                    );
+                }
+
+                if (amenitiesFromUrl.length > 0) {
+                    items = items.filter((r) => {
+                        const rAms = (r.amenities || []).map((a) => (typeof a === 'string' ? a : a.name));
+                        return amenitiesFromUrl.every((req) =>
+                            rAms.some((ra) => ra.toLowerCase().includes(req.toLowerCase()))
+                        );
+                    });
+                }
+
+                setRooms(items);
+                setPagination(
+                    res.pagination || {
+                        page: pageFromUrl,
+                        limit: PAGE_SIZE,
+                        total: items.length,
+                        pages: Math.ceil(items.length / PAGE_SIZE) || 1,
+                    }
+                );
             })
-            .catch(() => {
+            .catch((err) => {
                 if (!active) return;
-                fallbackToMock();
+                setRooms([]);
+                setAllAvailableRooms([]);
+                setPagination({ page: 1, limit: PAGE_SIZE, total: 0, pages: 1 });
+                setLoadError(err?.message || 'Không thể tải danh sách phòng');
             })
-            .finally(() => { if (active) setLoading(false); });
-        return () => { active = false; };
-    }, [pageFromUrl, roomTypeFromUrl, minPriceFromUrl, maxPriceFromUrl, minSizeFromUrl, maxSizeFromUrl, sortFromUrl, keywordFromUrl, cityFromUrl, districtFromUrl, amenitiesFromUrl, inspectionFromUrl, universityFromUrl, targetTenantFromUrl, policiesFromUrl, reload]);
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, [
+        pageFromUrl,
+        roomTypeFromUrl,
+        minPriceFromUrl,
+        maxPriceFromUrl,
+        minSizeFromUrl,
+        maxSizeFromUrl,
+        sortFromUrl,
+        keywordFromUrl,
+        cityFromUrl,
+        districtFromUrl,
+        amenitiesFromUrl,
+        inspectionFromUrl,
+        universityFromUrl,
+        targetTenantFromUrl,
+        policiesFromUrl,
+        reload,
+    ]);
 
     const updateParams = useCallback(
         (updates: Record<string, string | undefined>) => {
@@ -474,6 +430,62 @@ export function RoomsPage() {
 
     const handleConfirmBooking = (e: React.FormEvent) => {
         e.preventDefault();
+        if (bookingRoom) {
+            const apptDate = bookingData.date === 'today'
+                ? new Date().toISOString().split('T')[0]
+                : bookingData.date === 'tomorrow'
+                    ? new Date(Date.now() + 86400000).toISOString().split('T')[0]
+                    : new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
+
+            saveViewingAppointment({
+                tenantName: bookingData.name || user?.fullName || 'Khách xem phòng',
+                tenantPhone: bookingData.phone || user?.phone || '0908 000 000',
+                tenantEmail: user?.email || '',
+                roomId: bookingRoom.id,
+                roomName: bookingRoom.roomName || bookingRoom.title || 'Phòng trọ HexRoom',
+                rentalTitle: bookingRoom.rental?.title || 'Tòa nhà căn hộ HexRoom',
+                rentalAddress: bookingRoom.address || bookingRoom.rental?.location?.address || 'TP. Hồ Chí Minh',
+                appointmentDate: apptDate,
+                appointmentTimeSlot: bookingData.timeSlot,
+                feedbackNote: bookingData.note || 'Khách hẹn xem phòng trực tiếp từ website HexRoom',
+                status: 'CONFIRMED',
+                outcome: 'PENDING',
+                hostOrStaff: 'Chủ nhà trực tiếp',
+            });
+
+            try {
+                const existingRaw = localStorage.getItem('hexroom_local_bookings');
+                const existingList = existingRaw ? JSON.parse(existingRaw) : [];
+                const newBookingItem = {
+                    id: `HXR-BOOK-${Date.now().toString().slice(-6)}`,
+                    userId: user?.id,
+                    tenantId: user?.id,
+                    roomId: bookingRoom.id,
+                    roomName: bookingRoom.roomName || bookingRoom.title || 'Phòng trọ HexRoom',
+                    propertyName: bookingRoom.rental?.title || 'Tòa nhà HexRoom',
+                    propertyImage: bookingRoom.images?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
+                    address: bookingRoom.address || bookingRoom.rental?.location?.address || 'TP. Hồ Chí Minh',
+                    landlordName: 'Chủ trọ HexRoom',
+                    landlordPhone: '0908 123 456',
+                    tenantName: bookingData.name || user?.fullName || 'Khách xem phòng',
+                    tenantPhone: bookingData.phone || user?.phone || '0908 000 000',
+                    tenantEmail: user?.email || '',
+                    startDate: apptDate,
+                    endDate: apptDate,
+                    appointmentDate: apptDate,
+                    appointmentTime: bookingData.timeSlot,
+                    bookingType: 'VIEWING' as const,
+                    status: 'upcoming' as const,
+                    price: bookingRoom.price,
+                    notes: bookingData.note || 'Khách hẹn xem phòng trực tiếp từ website HexRoom',
+                    hasReview: false,
+                    canReview: false,
+                };
+                localStorage.setItem('hexroom_local_bookings', JSON.stringify([newBookingItem, ...(Array.isArray(existingList) ? existingList : [])]));
+            } catch {
+                // ignore
+            }
+        }
         setBookingSuccess(true);
     };
 
@@ -591,7 +603,7 @@ export function RoomsPage() {
                 </div>
             </div>
 
-            <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-6">
+            <main className="w-full max-w-[100%] mx-auto px-2 sm:px-4 lg:px-6 py-4">
                 {/* Multi-Field Search Bar: Keyword, City, District */}
                 <form
                     className="rooms-search-form-v2"
@@ -675,63 +687,10 @@ export function RoomsPage() {
                     ))}
                 </div>
 
-                {/* Inspection Segment Filter Bar (Core HexRoom USP) */}
-                <div className="rooms-inspection-bar-wrap">
-                    <div className="rooms-inspection-pills">
-                        <button
-                            type="button"
-                            className={`rooms-insp-tab ${inspectionFromUrl === 'all' ? 'active' : ''}`}
-                            onClick={() => handleInspectionFilterChange('all')}
-                        >
-                            <span>Tất cả phòng ({totalCount})</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={`rooms-insp-tab verified ${inspectionFromUrl === 'verified' ? 'active' : ''}`}
-                            onClick={() => handleInspectionFilterChange('verified')}
-                        >
-                            <ShieldCheck size={16} />
-                            <span>100% Đã kiểm định 4 bước ({verifiedCount})</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={`rooms-insp-tab pending ${inspectionFromUrl === 'pending' ? 'active' : ''}`}
-                            onClick={() => handleInspectionFilterChange('pending')}
-                        >
-                            <Clock size={16} />
-                            <span>Chờ đối chiếu thực địa ({pendingCount})</span>
-                        </button>
-                    </div>
-
-                    <div className="rooms-inspection-guarantee-note">
-                        <CheckCircle2 size={15} />
-                        <span>Quy trình chuẩn: <strong>Hiện trạng · Giá & Phụ phí · Ảnh chụp · Quyền cho thuê</strong></span>
-                    </div>
-                </div>
-
-                {/* Categories Bar */}
-                <div className="rooms-toolbar-top">
-                    <div className="rooms-category-bar">
-                        {typeTabs.map((tab) => (
-                            <button
-                                key={tab.value || 'all'}
-                                type="button"
-                                className={`rooms-cat-btn ${roomTypeFromUrl === tab.value ? 'active' : ''}`}
-                                onClick={() => handleTypeChange(tab.value)}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {hasActiveFilters && (
-                        <button type="button" className="rooms-reset-filters" onClick={handleResetAllFilters}>
-                            <RotateCcw size={13} style={{ display: 'inline', marginRight: 4 }} />
-                            {t('rooms.resetAllFilters')}
-                        </button>
-                    )}
-                </div>
-
+                {/* 2-Column Full-Width Layout: Filter on LEFT, Rooms on RIGHT */}
+                <div className="rooms-layout-wrap">
+                    {/* Left Column: Filter Sidebar - Sát bên trái */}
+                    <aside className="rooms-filter-sidebar-col">
                 {/* Comprehensive Advanced Filter Box */}
                 <div className={`rooms-advanced-filter-card ${isFilterExpanded ? 'expanded' : ''}`}>
                     <div
@@ -815,7 +774,7 @@ export function RoomsPage() {
                                 <div className="rooms-filter-section-title">
                                     <span>📐 Diện tích không gian:</span>
                                 </div>
-                                <div className="rooms-price-chips">
+                                <div className="rooms-price-chips rooms-size-chips">
                                     {FILTER_SIZE_PRESETS.map((preset) => {
                                         const isSelected = preset.id === 'any'
                                             ? minSizeFromUrl == null && maxSizeFromUrl == null
@@ -964,6 +923,35 @@ export function RoomsPage() {
                         </div>
                     )}
                 </div>
+                    </aside>
+
+                    {/* Right Column: Rooms Content - Mở rộng hết sang bên phải */}
+                    <div className="rooms-content-col">
+
+
+                {/* Categories Bar */}
+                <div className="rooms-toolbar-top">
+                    <div className="rooms-category-bar">
+                        {typeTabs.map((tab) => (
+                            <button
+                                key={tab.value || 'all'}
+                                type="button"
+                                className={`rooms-cat-btn ${roomTypeFromUrl === tab.value ? 'active' : ''}`}
+                                onClick={() => handleTypeChange(tab.value)}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {hasActiveFilters && (
+                        <button type="button" className="rooms-reset-filters" onClick={handleResetAllFilters}>
+                            <RotateCcw size={13} style={{ display: 'inline', marginRight: 4 }} />
+                            {t('rooms.resetAllFilters')}
+                        </button>
+                    )}
+                </div>
+
 
                 {/* Active Filters Badges Strip */}
                 {hasActiveFilters && (
@@ -1078,50 +1066,19 @@ export function RoomsPage() {
                     </div>
                 )}
 
-                {/* Scope link */}
-                <button
-                    type="button"
-                    className="rooms-advanced-link"
-                    onClick={() => navigate('/how-it-works')}
-                >
-                    <SlidersHorizontal size={16} aria-hidden />
-                    Tìm hiểu quy trình khảo sát đối chiếu 4 bước tại chỗ của HexRoom
-                </button>
-
-                {/* Detailed Action Bar: Result count + View Mode Switcher */}
-                <div className="rooms-toolbar-action-row">
+                {/* Action Bar: Result count */}
+                <div className="rooms-toolbar-action-row" style={{ marginTop: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
                             {universityFromUrl
                                 ? `Phòng gần ${POPULAR_UNIVERSITIES.find(u => u.id === universityFromUrl)?.name}`
                                 : cityFromUrl
                                     ? `Phòng trọ tại ${cityFromUrl}`
-                                    : 'Danh sách phòng trọ đã xác thực'}
+                                    : 'Danh sách phòng trọ'}
                         </span>
                         <span style={{ fontSize: 13, color: '#059669', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '2px 10px', borderRadius: 999, fontWeight: 700 }}>
                             {rooms.length} phòng khả dụng
                         </span>
-                    </div>
-
-                    <div className="rooms-view-toggle-wrap">
-                        <button
-                            type="button"
-                            className={`rooms-view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                            onClick={() => setViewMode('grid')}
-                            title="Xem dạng lưới"
-                        >
-                            <LayoutGrid size={15} />
-                            <span>Dạng lưới</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={`rooms-view-toggle-btn ${viewMode === 'detailed' ? 'active' : ''}`}
-                            onClick={() => setViewMode('detailed')}
-                            title="Xem chi tiết biểu phí & kiểm định"
-                        >
-                            <List size={15} />
-                            <span>Chi tiết biểu phí</span>
-                        </button>
                     </div>
                 </div>
 
@@ -1176,334 +1133,103 @@ export function RoomsPage() {
                         </button>
                     </div>
                 ) : (
-                    <div className={`rooms-card-grid ${viewMode === 'detailed' ? 'detailed-view' : ''}`}>
+                    <div className="rooms-card-grid">
                         {rooms.map((room) => {
-                            const { landlord, inspection } = getRoomLandlordAndInspection(room);
-                            const costHighlights = getRoomCostHighlights(room);
                             const images = room.images || [];
                             const mainImg = images[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
                             const loc = room.rental?.location;
-                            const address = loc ? [loc.district, loc.city].filter(Boolean).join(', ') : ((room as any).district ? `${(room as any).district}, ${(room as any).city || ''}` : '');
+                            const address = loc
+                                ? [loc.address, loc.district, loc.city].filter(Boolean).join(', ')
+                                : ((room as any).address
+                                    ? (room as any).address
+                                    : ((room as any).district ? `${(room as any).district}, ${(room as any).city || ''}` : 'TP. Hồ Chí Minh'));
                             const name = room.roomName || room.title || t('rooms.title');
-                            const desc = room.description || '';
-                            const amenities = room.amenities || [];
                             const maxPeople = room.maxPeople || 2;
+                            const sizeM2 = room.sizeM2 || 24;
+                            const inspectionProfile = getRoomLandlordAndInspection(room)?.inspection;
+                            const isInspected = Boolean(
+                                inspectionProfile?.isInspected ||
+                                (room as any).isInspected ||
+                                (room as any).isVerified ||
+                                inspectionProfile?.status === 'VERIFIED'
+                            );
 
                             return (
                                 <div
                                     key={room.id}
-                                    className={`room-card ${inspection.isInspected ? 'is-inspected' : 'is-pending'}`}
+                                    className="room-card"
                                     onClick={() => handleRoomClick(room.id)}
                                     role="button"
                                     tabIndex={0}
                                     onKeyDown={(e) => e.key === 'Enter' && handleRoomClick(room.id)}
                                 >
-                                    {/* Images Grid with Overlays */}
+                                    {/* Image with Status Pill, Diagonal Ribbon & Favorite */}
                                     <div className="room-card-images">
-                                        <div className="img-main">
-                                            <img
-                                                src={mainImg}
-                                                alt={name}
-                                                crossOrigin="anonymous"
-                                                loading="lazy"
-                                                onError={(e) => {
-                                                    e.currentTarget.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
-                                                }}
-                                            />
+                                        <img
+                                            src={mainImg}
+                                            alt={name}
+                                            crossOrigin="anonymous"
+                                            loading="lazy"
+                                            onError={(e) => {
+                                                e.currentTarget.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80';
+                                            }}
+                                        />
+
+                                        {/* Status pill top-left: • Còn trống */}
+                                        <div className="room-badge-status-pill">
+                                            <span className="status-dot" /> Còn trống
                                         </div>
-                                        {images.length > 1 && (
-                                            <div className="img-sub">
-                                                <img
-                                                    src={images[1]}
-                                                    alt=""
-                                                    crossOrigin="anonymous"
-                                                    loading="lazy"
-                                                    onError={(e) => {
-                                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80';
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
-                                        {images.length > 2 && (
-                                            <div className="img-sub">
-                                                <img
-                                                    src={images[2]}
-                                                    alt=""
-                                                    crossOrigin="anonymous"
-                                                    loading="lazy"
-                                                    onError={(e) => {
-                                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=80';
-                                                    }}
-                                                />
+
+                                        {/* Băng rôn chéo đánh dấu phòng đã kiểm định */}
+                                        {isInspected && (
+                                            <div
+                                                className="room-corner-ribbon-wrap"
+                                                title="Phòng đã được chuyên viên HexRoom đối chiếu & kiểm định thực tế"
+                                            >
+                                                <div className="room-corner-ribbon">
+                                                    <ShieldCheck size={8} strokeWidth={2.4} />
+                                                    <span>ĐÃ KIỂM ĐỊNH</span>
+                                                </div>
                                             </div>
                                         )}
 
-                                        {/* Floating Top Left: Inspection Badge & Room Type */}
-                                        <div className="card-floating-top-left">
-                                            {inspection.isInspected ? (
-                                                <span className="room-badge-insp verified" title="Đã qua kiểm định thực tế 4 bước tại chỗ">
-                                                    <ShieldCheck size={13} className="badge-icon-verified" />
-                                                    <span>100% ĐÃ ĐỐI CHIẾU 4 BƯỚC</span>
-                                                </span>
-                                            ) : (
-                                                <span className="room-badge-insp pending" title="Tin do chủ trọ tự khai, đang xếp lịch kiểm định thực tế">
-                                                    <Clock size={13} className="badge-icon-pending" />
-                                                    <span>CHỜ ĐỐI CHIẾU THỰC ĐỊA</span>
-                                                </span>
-                                            )}
-                                            {room.roomType && (
-                                                <span className="room-badge-type">
-                                                    {formatRoomTypeBadge(room.roomType)}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Floating Top Right: Heart favorite */}
-                                        <div className="card-floating-top-right" onClick={(e) => e.stopPropagation()}>
+                                        {/* Heart favorite bottom-right */}
+                                        <div className="card-floating-bottom-right" onClick={(e) => e.stopPropagation()}>
                                             <RoomFavoriteButton
                                                 favoritePayload={mapPublicRoomToFavorite(room, name, address)}
                                                 className="room-card-fav-btn"
                                             />
                                         </div>
-
-                                        {/* Floating Bottom Left: Photo Counter */}
-                                        <div className="card-floating-bottom-left">
-                                            {images.length > 0 && (
-                                                <div className="img-count">
-                                                    <Camera size={12} />
-                                                    <span>{images.length} ảnh thực tế</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Floating Bottom Right: Available status */}
-                                        <div className="card-floating-bottom-right">
-                                            <span className="room-badge-available">
-                                                <span className="available-dot" /> Còn phòng trống
-                                            </span>
-                                        </div>
                                     </div>
 
-                                    {/* Card Body */}
+                                    {/* Card Body: Title, Location, Specs, Price */}
                                     <div className="room-card-body">
                                         <h3 className="room-card-title" title={name}>{name}</h3>
 
-                                        {/* Price · Area · Capacity · Location */}
-                                        <div className="room-card-meta">
-                                            <span className="room-card-price">
-                                                {formatPrice(room.price, t('listing.pricePerMillion'), t('listing.pricePerDong'))}
-                                            </span>
-                                            {room.sizeM2 && <span className="room-card-area">{room.sizeM2} m²</span>}
-                                            <span className="room-card-capacity">
-                                                <Users size={13} /> Tối đa {maxPeople} người
-                                            </span>
-                                            {address && (
-                                                <span className="room-card-location" title={address}>
-                                                    <MapPin size={13} />
-                                                    {address}
-                                                </span>
-                                            )}
+                                        <div className="room-card-location" title={address}>
+                                            <MapPin size={13} className="shrink-0 text-slate-400" />
+                                            <span className="truncate">{address}</span>
                                         </div>
 
-                                        {/* Transparent Costs Highlight Strip (HexRoom Value) */}
-                                        <div className="room-card-costs-strip">
-                                            {costHighlights.isAllInclusive ? (
-                                                <span className="cost-tag inclusive">
-                                                    <Sparkles size={12} /> Bao trọn gói Điện, Nước & Wifi
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <span className="cost-tag" title="Giá điện niêm yết">
-                                                        <Zap size={12} className="cost-icon-zap" /> Điện: <strong>{costHighlights.electricity}</strong>
-                                                    </span>
-                                                    <span className="cost-tag" title="Giá nước sinh hoạt">
-                                                        💧 Nước: <strong>{costHighlights.water}</strong>
-                                                    </span>
-                                                    <span className="cost-tag" title="Tiền đặt cọc phòng">
-                                                        🛡️ Cọc: <strong>{costHighlights.deposit}</strong>
-                                                    </span>
-                                                    {costHighlights.parking && (
-                                                        <span className="cost-tag" title="Phí gửi xe">
-                                                            🛵 Xe: <strong>{costHighlights.parking}</strong>
-                                                        </span>
-                                                    )}
-                                                </>
-                                            )}
+                                        <div className="room-card-specs">
+                                            <span className="spec-item">
+                                                <Tag size={12} className="shrink-0" />
+                                                <span>{sizeM2} m²</span>
+                                            </span>
+                                            <span className="spec-item">
+                                                <Users size={12} className="shrink-0" />
+                                                <span>{maxPeople} người</span>
+                                            </span>
+                                            <span className="spec-item">
+                                                <span>{formatRoomTypeBadge(room.roomType)}</span>
+                                            </span>
                                         </div>
 
-                                        {/* 4-Step Inspection Micro Checklist Bar (Core HexRoom Value) */}
-                                        {inspection.isInspected ? (
-                                            <div className="room-inspection-status-bar verified">
-                                                <div className="insp-bar-top">
-                                                    <span className="insp-bar-status-text">
-                                                        <ShieldCheck size={14} className="text-emerald-600" />
-                                                        ĐÃ ĐỐI CHIẾU 4 BƯỚC BỞI HEXROOM INSPECTOR
-                                                    </span>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-                                                        {inspection.inspectedDate && (
-                                                            <span className="insp-bar-date">Ngày {inspection.inspectedDate}</span>
-                                                        )}
-                                                        <button
-                                                            type="button"
-                                                            className="rooms-book-tour-chip"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setBookingRoom(room);
-                                                                setBookingSuccess(false);
-                                                            }}
-                                                            title="Hẹn lịch xem phòng tận nơi cùng Inspector"
-                                                        >
-                                                            <Calendar size={12} /> Hẹn xem phòng
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="insp-checklist-mini-grid">
-                                                    <span className="insp-check-item">
-                                                        <Check size={11} /> 1. Hiện trạng phòng
-                                                    </span>
-                                                    <span className="insp-check-item">
-                                                        <Check size={11} /> 2. Giá & Phụ phí
-                                                    </span>
-                                                    <span className="insp-check-item">
-                                                        <Check size={11} /> 3. 100% Ảnh thực tế
-                                                    </span>
-                                                    <span className="insp-check-item">
-                                                        <Check size={11} /> 4. Quyền cho thuê
-                                                    </span>
-                                                </div>
-                                                {inspection.summary && (
-                                                    <p className="insp-summary-text">
-                                                        “{inspection.summary}”
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="room-inspection-status-bar pending">
-                                                <div className="insp-bar-top">
-                                                    <span className="insp-bar-status-text-pending">
-                                                        <AlertTriangle size={14} className="text-amber-600" />
-                                                        CHƯA QUA ĐỐI CHIẾU THỰC ĐỊA (CHỦ NHÀ TỰ KHAI)
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        className="rooms-book-tour-chip pending"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setBookingRoom(room);
-                                                            setBookingSuccess(false);
-                                                        }}
-                                                        title="Hẹn lịch xem phòng cùng Inspector đối chiếu"
-                                                    >
-                                                        <Calendar size={12} /> Hẹn xem phòng
-                                                    </button>
-                                                </div>
-                                                <p className="insp-pending-note">
-                                                    Thông tin và hình ảnh do chủ phòng tự đăng tải. HexRoom đang xếp lịch cử Inspector đến đo đạc kiểm tra tại chỗ.
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* Amenities */}
-                                        {amenities.length > 0 && (
-                                            <div className="room-card-amenities">
-                                                {amenities.slice(0, 5).map((a) => (
-                                                    <span key={a.id} className="room-card-amenity">
-                                                        {a.name}
-                                                    </span>
-                                                ))}
-                                                {amenities.length > 5 && (
-                                                    <span className="room-card-amenity more">+{amenities.length - 5} tiện ích</span>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Description */}
-                                        {desc && <p className="room-card-desc">{desc}</p>}
-
-                                        {/* Detailed Fee Breakdown Box (Hiển thị khi chọn chế độ Xem chi tiết biểu phí) */}
-                                        {viewMode === 'detailed' && (
-                                            <div className="rooms-detail-breakdown-box">
-                                                <div className="rooms-detail-fee-item">
-                                                    <span>⚡ Điện sinh hoạt</span>
-                                                    <span>{costHighlights.electricity}</span>
-                                                </div>
-                                                <div className="rooms-detail-fee-item">
-                                                    <span>💧 Nước sinh hoạt</span>
-                                                    <span>{costHighlights.water}</span>
-                                                </div>
-                                                <div className="rooms-detail-fee-item">
-                                                    <span>🛡️ Tiền đặt cọc</span>
-                                                    <span>{costHighlights.deposit}</span>
-                                                </div>
-                                                <div className="rooms-detail-fee-item">
-                                                    <span>🛵 Phí gửi xe</span>
-                                                    <span>{costHighlights.parking || 'Miễn phí'}</span>
-                                                </div>
-                                                <div className="rooms-detail-fee-item">
-                                                    <span>🌐 Dịch vụ / Wifi</span>
-                                                    <span>{costHighlights.service || 'Miễn phí'}</span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Landlord / Host Profile Section */}
-                                        <div className="room-card-landlord-container">
-                                            <div className="landlord-main-info">
-                                                <div className="landlord-avatar-wrapper">
-                                                    <img
-                                                        src={landlord.avatarUrl}
-                                                        alt={landlord.fullName}
-                                                        className="landlord-avatar-image"
-                                                        onError={(e) => {
-                                                            e.currentTarget.src = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&auto=format&fit=crop&q=80';
-                                                        }}
-                                                    />
-                                                    <span className={`landlord-badge-dot ${landlord.isIdentityVerified ? 'verified' : ''}`} />
-                                                </div>
-                                                <div className="landlord-text-col">
-                                                    <div className="landlord-heading-row">
-                                                        <span className="landlord-full-name">{landlord.fullName}</span>
-                                                        <span className="landlord-rating-pill">
-                                                            ⭐ {landlord.rating} <small>({landlord.reviewCount})</small>
-                                                        </span>
-                                                    </div>
-                                                    <div className="landlord-sub-row">
-                                                        {landlord.isIdentityVerified ? (
-                                                            <span className="landlord-id-status verified">
-                                                                <ShieldCheck size={12} /> {landlord.identityBadge}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="landlord-id-status pending">
-                                                                <Clock size={12} /> {landlord.identityBadge}
-                                                            </span>
-                                                        )}
-                                                        <span className="sub-sep">·</span>
-                                                        <span className="landlord-response-time">{landlord.responseTime}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Action Column: Số điện thoại với Xem chi tiết xếp thành một cột */}
-                                            <div className="landlord-action-wrapper" onClick={(e) => e.stopPropagation()}>
-                                                <a
-                                                    href={`tel:${landlord.phone}`}
-                                                    className="btn-call-landlord"
-                                                    title={`Gọi cho ${landlord.fullName}`}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <Phone size={13} />
-                                                    <span>{landlord.phone}</span>
-                                                </a>
-                                                <button
-                                                    type="button"
-                                                    className="btn-view-transparency"
-                                                    onClick={() => handleRoomClick(room.id)}
-                                                    title="Xem chi tiết hồ sơ minh bạch phòng"
-                                                >
-                                                    <span>Xem chi tiết</span>
-                                                    <ChevronRight size={13} />
-                                                </button>
-                                            </div>
+                                        <div className="room-card-price-row">
+                                            <span className="price-val">
+                                                {Number(room.price).toLocaleString('vi-VN')} đ
+                                            </span>
+                                            <span className="price-unit">/tháng</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1545,6 +1271,8 @@ export function RoomsPage() {
                         </button>
                     </div>
                 )}
+                    </div>
+                </div>
                 {/* Quick Appointment Modal */}
                 {bookingRoom && (
                     <div className="hx-modal-backdrop" onClick={() => setBookingRoom(null)}>

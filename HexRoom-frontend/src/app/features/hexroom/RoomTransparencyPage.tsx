@@ -11,10 +11,10 @@ import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
 import { useAuth } from '@/app/context/useAuth';
 import { useChatBox } from '@/app/context/useChatBox';
 import { request, money, inspectionCategories, inspectionStatuses, type ApiRoom, type Inspection, type RoomCosts } from '@/lib/hexroom-api';
-import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
 import { getRoomLandlordAndInspection } from '@/lib/room-landlord-data';
 import { createRentalRequest, type RentalRequest } from '@/app/features/rentalManagement/requests/requests-storage';
 import type { Booking } from '@/app/features/booking-history/types';
+import { saveViewingAppointment } from '@/lib/room-viewing-history';
 
 const costLabels: [keyof RoomCosts, string][] = [
     ['deposit', 'Tiền cọc'],
@@ -119,66 +119,26 @@ export function RoomTransparencyPage() {
 
     useEffect(() => {
         let active = true;
-        const mock = MOCK_ROOMS_DATA.find((r) => r.id === id);
-        if (mock) {
-            setRoom(mock);
-            setInspections([
-                {
-                    id: 'insp-1',
-                    category: 'CONDITION',
-                    result: 'CHECKED',
-                    currentResult: 'CHECKED',
-                    inspectedOn: '10/10/2026',
-                    validUntil: '10/04/2027',
-                    method: 'Kiểm tra trực tiếp tại phòng, kiểm tra hệ thống điện nước và cửa sổ',
-                    findings: 'Phòng mới, tường không ẩm mốc, máy lạnh hoạt động tốt, nước cấp mạnh.',
-                    evidenceImages: mock.images.slice(0, 2),
-                    recordedAt: '2026-10-10T10:00:00Z',
-                },
-                {
-                    id: 'insp-2',
-                    category: 'PRICE_AND_FEES',
-                    result: 'CHECKED',
-                    currentResult: 'CHECKED',
-                    inspectedOn: '10/10/2026',
-                    validUntil: '10/04/2027',
-                    method: 'Đối chiếu hóa đơn điện nước tháng gần nhất và biểu phí chủ nhà',
-                    findings: 'Giá thuê đúng niêm yết, đồng hồ điện nước riêng biệt, không phát sinh phụ phí ngầm.',
-                    evidenceImages: [],
-                    recordedAt: '2026-10-10T10:00:00Z',
-                },
-                {
-                    id: 'insp-3',
-                    category: 'IMAGES',
-                    result: 'CHECKED',
-                    currentResult: 'CHECKED',
-                    inspectedOn: '10/10/2026',
-                    validUntil: '10/04/2027',
-                    method: 'Chụp ảnh thực tế 360 độ góc rộng',
-                    findings: 'Ảnh chụp khớp 100% với hiện trạng thực tế.',
-                    evidenceImages: mock.images.slice(1, 3),
-                    recordedAt: '2026-10-10T10:00:00Z',
-                },
-                {
-                    id: 'insp-4',
-                    category: 'RENTAL_RIGHTS',
-                    result: 'CHECKED',
-                    currentResult: 'CHECKED',
-                    inspectedOn: '10/10/2026',
-                    validUntil: '10/10/2027',
-                    method: 'Kiểm tra giấy tờ chủ quyền nhà và hợp đồng ủy quyền quản lý',
-                    findings: 'Chính chủ cho thuê hợp pháp, có đăng ký tạm trú đầy đủ.',
-                    evidenceImages: [],
-                    recordedAt: '2026-10-10T10:00:00Z',
-                },
-            ]);
-            setLoading(false);
-            return;
-        }
+        setLoading(true);
+        setError('');
 
-        Promise.all([request<ApiRoom>(`/rooms/${id}`), request<Inspection[]>(`/rooms/${id}/inspections`)])
-            .then(([data, records]) => { if (active) { setRoom(data); setInspections(records); } })
-            .catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
+        Promise.all([
+            request<ApiRoom>(`/rooms/${id}`),
+            request<Inspection[]>(`/rooms/${id}/inspections`).catch(() => [])
+        ])
+            .then(([data, records]) => {
+                if (active) {
+                    setRoom(data);
+                    setInspections(records || []);
+                }
+            })
+            .catch(e => {
+                if (active) setError(e.message || 'Không thể tải thông tin phòng');
+            })
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+
         return () => { active = false; };
     }, [id]);
 
@@ -216,6 +176,8 @@ export function RoomTransparencyPage() {
         // 1. Lưu vào danh sách đơn của Tenant (cho /history)
         const newBooking: Booking = {
             id: newBookingId,
+            userId: user?.id,
+            tenantId: user?.id,
             roomId: room.id,
             roomName: room.roomName || room.rentalTitle,
             propertyName: room.rentalTitle || 'Tòa nhà HexRoom',
@@ -223,6 +185,9 @@ export function RoomTransparencyPage() {
             address: [room.address, room.district, room.city].filter(Boolean).join(', '),
             landlordName: landlordName || 'Chủ trọ HexRoom',
             landlordPhone: landlordPhone || '0908 123 456',
+            tenantName: tenantName || user?.fullName || 'Khách xem phòng',
+            tenantPhone: tenantPhone || user?.phone || '0918 234 567',
+            tenantEmail: tenantEmail || user?.email || '',
             startDate: bookingDate,
             endDate: new Date(Date.now() + Number(leaseMonths) * 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
             appointmentDate: bookingDate,
@@ -238,6 +203,23 @@ export function RoomTransparencyPage() {
         const existingRaw = localStorage.getItem('hexroom_local_bookings');
         const existingList: Booking[] = existingRaw ? JSON.parse(existingRaw) : [];
         localStorage.setItem('hexroom_local_bookings', JSON.stringify([newBooking, ...existingList]));
+
+        // Lưu vào room-viewing-history
+        saveViewingAppointment({
+            tenantName: tenantName || user?.fullName || 'Khách xem phòng',
+            tenantPhone: tenantPhone || user?.phone || '0918 234 567',
+            tenantEmail: tenantEmail || user?.email || '',
+            roomId: room.id,
+            roomName: room.roomName || room.rentalTitle || 'Phòng trọ HexRoom',
+            rentalTitle: room.rentalTitle || 'Tòa nhà HexRoom',
+            rentalAddress: [room.address, room.district, room.city].filter(Boolean).join(', '),
+            appointmentDate: bookingDate,
+            appointmentTimeSlot: bookingTimeSlot,
+            status: 'CONFIRMED',
+            outcome: 'PENDING',
+            feedbackNote: tenantNotes || 'Khách hẹn xem phòng trực tiếp từ trang chi tiết phòng.',
+            hostOrStaff: landlordName || 'Chủ nhà trực tiếp',
+        });
 
         // 2. Lưu vào danh sách yêu cầu của Landlord (cho /rental-management/requests)
         const newRentalRequest: RentalRequest = {
@@ -316,50 +298,47 @@ export function RoomTransparencyPage() {
                                 {/* ── PHÓNG TO ẢNH VÀ ĐẶT BÊN TRÁI LÀM CHỦ THỂ CHÍNH ── */}
                                 <div className="hx-showcase-gallery">
                                     {room.images.length > 0 ? (
-                                        <>
-                                            {/* Topbar: Tiêu đề ảnh & Bộ chuyển chế độ xem */}
-                                            <div className="hx-showcase-topbar">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
-                                                        <Camera size={15} style={{ color: '#10B981' }} /> {room.images.length} Ảnh thực tế
-                                                    </span>
-                                                    <span style={{ fontSize: 12, background: 'rgba(16, 185, 129, 0.12)', color: '#059669', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
-                                                        Đã đối chiếu
-                                                    </span>
-                                                </div>
-
-                                                {/* View Switcher Pills */}
-                                                <div className="hx-showcase-view-switch">
-                                                    <button
-                                                        type="button"
-                                                        className={`hx-showcase-view-btn ${galleryViewMode === 'mosaic' ? 'active' : ''}`}
-                                                        onClick={() => setGalleryViewMode('mosaic')}
-                                                        title="Xem dạng ghép ảnh (1 lớn + 2 nhỏ)"
-                                                    >
-                                                        <Layers size={13} /> Ghép ảnh
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={`hx-showcase-view-btn ${galleryViewMode === 'grid' ? 'active' : ''}`}
-                                                        onClick={() => setGalleryViewMode('grid')}
-                                                        title="Xem dạng lưới 4 ảnh cùng lúc"
-                                                    >
-                                                        <LayoutGrid size={13} /> Lưới 4 ảnh
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={`hx-showcase-view-btn ${galleryViewMode === 'single' ? 'active' : ''}`}
-                                                        onClick={() => setGalleryViewMode('single')}
-                                                        title="Xem 1 ảnh lớn toàn màn"
-                                                    >
-                                                        <Square size={13} /> 1 ảnh lớn
-                                                    </button>
-                                                </div>
+                                        <div className="hx-gallery-wrapper" style={{ position: 'relative', width: '100%' }}>
+                                            {/* Floating View Switcher Pills - Placed once over the whole gallery */}
+                                            <div className="hx-gallery-floating-switcher" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    type="button"
+                                                    className={`hx-gallery-floating-btn ${galleryViewMode === 'mosaic' ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setGalleryViewMode('mosaic');
+                                                    }}
+                                                    title="Xem dạng ghép ảnh"
+                                                >
+                                                    <Layers size={12} /> Ghép ảnh
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`hx-gallery-floating-btn ${galleryViewMode === 'grid' ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setGalleryViewMode('grid');
+                                                    }}
+                                                    title="Xem dạng lưới 4 ảnh"
+                                                >
+                                                    <LayoutGrid size={12} /> Lưới 4 ảnh
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`hx-gallery-floating-btn ${galleryViewMode === 'single' ? 'active' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setGalleryViewMode('single');
+                                                    }}
+                                                    title="Xem 1 ảnh lớn"
+                                                >
+                                                    <Square size={12} /> 1 ảnh lớn
+                                                </button>
                                             </div>
 
                                             {/* ── BỐ CỤC 1: MOSAIC (GHÉP ẢNH HIỆN ĐẠI) ── */}
                                             {galleryViewMode === 'mosaic' && (
-                                                <div className="hx-gallery-mosaic">
+                                                <div className={`hx-gallery-mosaic ${room.images.length === 2 ? 'has-2-images' : ''} ${room.images.length === 1 ? 'has-1-image' : ''}`}>
                                                     {/* Ảnh chính lớn bên trái */}
                                                     <div
                                                         className="hx-gallery-mosaic-main"
@@ -386,7 +365,7 @@ export function RoomTransparencyPage() {
                                                         </div>
                                                     </div>
 
-                                                    {/* Ảnh phụ thứ 1 bên phải (trên) */}
+                                                    {/* Ảnh phụ thứ 1 bên phải */}
                                                     {room.images.length > 1 && (
                                                         <div
                                                             className="hx-gallery-mosaic-sub"
@@ -408,7 +387,7 @@ export function RoomTransparencyPage() {
                                                         </div>
                                                     )}
 
-                                                    {/* Ảnh phụ thứ 2 bên phải (dưới) */}
+                                                    {/* Ảnh phụ thứ 2 bên phải (nếu có từ 3 ảnh trở lên) */}
                                                     {room.images.length > 2 && (
                                                         <div
                                                             className="hx-gallery-mosaic-sub"
@@ -554,9 +533,7 @@ export function RoomTransparencyPage() {
                                                     )}
                                                 </div>
                                             )}
-
-
-                                        </>
+                                        </div>
                                     ) : (
                                         <div className="hx-empty" style={{ width: '100%', height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <House size={28} /> Chủ trọ chưa cung cấp ảnh

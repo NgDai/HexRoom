@@ -61,6 +61,7 @@ export interface CandidateRoommateData {
         avatarUrl?: string | null;
         age?: number;
     };
+    matchScore?: number;
     lifestyle?: {
         smoking?: boolean | null;
         drinking?: boolean | null;
@@ -196,6 +197,28 @@ export function calculateRoommateCompatibility(
     candidate: CandidateRoommateData,
     userGender?: string | null
 ): CompatibilityResult {
+    const hasTenantCriteria = Boolean(
+        tenantPref?.budget_max ||
+        tenantPref?.budget_min ||
+        tenantPref?.preferredLocation ||
+        (tenantPref?.preferred_districts && parseArray(tenantPref.preferred_districts).length > 0) ||
+        tenantPref?.preferred_gender ||
+        tenantLifestyle?.smoking !== undefined ||
+        tenantLifestyle?.pets_allowed !== undefined ||
+        tenantLifestyle?.sleep_schedule
+    );
+
+    if (!hasTenantCriteria) {
+        const baseScore = candidate.matchScore || 50;
+        return {
+            score: baseScore,
+            matchScore: baseScore,
+            breakdown: { budget: 15, location: 15, lifestyle: 15, genderRoom: 5, interests: 0 },
+            matchingTags: ['Hồ sơ công khai'],
+            warningTags: ['Chưa có hồ sơ đối chiếu'],
+        };
+    }
+
     let budgetScore = 20; // default neutral
     let locationScore = 20;
     let lifestyleScore = 28;
@@ -232,18 +255,19 @@ export function calculateRoommateCompatibility(
                 budgetScore = 10;
                 warningTags.push('⚠ Chênh lệch ngân sách');
             } else {
-                budgetScore = 4;
+                budgetScore = 2;
                 warningTags.push('⚠ Khác mức ngân sách');
             }
         }
     } else if (tMax > 0 && cMax === 0) {
-        budgetScore = 20;
+        budgetScore = 18;
     }
 
     // ── 2. LOCATION MATCH (Max 25 pts) ──
     const tenantDistricts = parseArray(tenantPref?.preferred_districts);
     const candDistricts = parseArray(candPref?.preferred_districts);
-    const candLoc = (candPref?.preferredLocation || '').toLowerCase();
+    const candLoc = (candPref?.preferredLocation || '').toLowerCase().trim();
+    const tenantLoc = (tenantPref?.preferredLocation || '').toLowerCase().trim();
 
     if (tenantDistricts.length > 0) {
         let matchedDistrict = '';
@@ -262,20 +286,35 @@ export function calculateRoommateCompatibility(
         } else {
             // Check if common metropolitan city
             const isBothHCM =
-                tenantDistricts.some((d) => /quận|bình thạnh|thủ đức|gò vấp|tân bình|hồ chí minh/i.test(d)) &&
-                candDistricts.some((d) => /quận|bình thạnh|thủ đức|gò vấp|tân bình|hồ chí minh/i.test(d));
+                (tenantDistricts.some((d) => /quận|bình thạnh|thủ đức|gò vấp|tân bình|hồ chí minh/i.test(d)) || tenantLoc.includes('hồ chí minh') || tenantLoc.includes('hcm')) &&
+                (candDistricts.some((d) => /quận|bình thạnh|thủ đức|gò vấp|tân bình|hồ chí minh/i.test(d)) || candLoc.includes('hồ chí minh') || candLoc.includes('hcm'));
             const isBothHN =
-                tenantDistricts.some((d) => /cầu giấy|đống đa|ba đình|hà nội/i.test(d)) &&
-                candDistricts.some((d) => /cầu giấy|đống đa|ba đình|hà nội/i.test(d));
+                (tenantDistricts.some((d) => /cầu giấy|đống đa|ba đình|hà nội/i.test(d)) || tenantLoc.includes('hà nội')) &&
+                (candDistricts.some((d) => /cầu giấy|đống đa|ba đình|hà nội/i.test(d)) || candLoc.includes('hà nội'));
 
             if (isBothHCM || isBothHN) {
                 locationScore = 16;
                 matchingTags.push('✓ Cùng thành phố');
             } else {
-                locationScore = 8;
+                locationScore = 2;
                 warningTags.push('⚠ Khác khu vực ưu tiên');
             }
         }
+    } else if (tenantLoc) {
+        if (candLoc && (candLoc.includes(tenantLoc) || tenantLoc.includes(candLoc))) {
+            locationScore = 25;
+            matchingTags.push(`✓ Cùng thành phố ${tenantPref?.preferredLocation}`);
+        } else if (candDistricts.some((cd) => cd.toLowerCase().includes(tenantLoc) || tenantLoc.includes(cd.toLowerCase()))) {
+            locationScore = 25;
+            matchingTags.push(`✓ Cùng khu vực ${tenantPref?.preferredLocation}`);
+        } else if (candLoc) {
+            locationScore = 0;
+            warningTags.push(`⚠ Khác thành phố`);
+        } else {
+            locationScore = 12;
+        }
+    } else {
+        locationScore = 12;
     }
 
     // ── 3. LIFESTYLE HABITS (Max 35 pts) ──
@@ -483,8 +522,8 @@ export function calculateRoommateCompatibility(
         totalScore = (budgetScore + locationScore) * 0.75 + lifestyleScore * 1.25 + genderRoomScore + interestsScore - penalty;
     }
 
-    // Clamp score between 45% and 98%
-    const finalScore = Math.max(45, Math.min(98, Math.round(totalScore)));
+    // Clamp score between 25% and 98%
+    const finalScore = Math.max(25, Math.min(98, Math.round(totalScore)));
 
     return {
         score: finalScore,

@@ -33,6 +33,9 @@ public class UserSummaryDto {
     private Boolean emailVerified;
     private String permanentAddress;
     private String dateOfBirth;
+    private String identityCardIssuedDate;
+    private String identityCardIssuedPlace;
+    private java.time.LocalDateTime identityVerifiedAt;
 
     public static UserSummaryDto fromEntity(User user) {
         if (user == null) return null;
@@ -54,6 +57,9 @@ public class UserSummaryDto {
                 .emailVerified(user.getEmailVerified())
                 .permanentAddress(user.getPermanentAddress())
                 .dateOfBirth(user.getDateOfBirth())
+                .identityCardIssuedDate(user.getIdentityCardIssuedDate())
+                .identityCardIssuedPlace(user.getIdentityCardIssuedPlace())
+                .identityVerifiedAt(user.getIdentityVerifiedAt())
                 .build();
     }
 }

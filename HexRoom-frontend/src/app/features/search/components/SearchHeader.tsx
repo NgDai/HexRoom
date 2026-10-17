@@ -19,9 +19,7 @@ export function SearchHeader({
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div className="flex items-center justify-between mb-5">
                     <Link to="/home" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-                        <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-sm">
-                            <HomeIcon className="w-5 h-5 text-primary-foreground" strokeWidth={2} />
-                        </div>
+                        <img src="/hexroom-logo.png" alt="HexRoom" className="w-8 h-8 object-contain shrink-0" />
                         <span className="font-heading font-bold text-primary">HexRoom</span>
                     </Link>
                     <button

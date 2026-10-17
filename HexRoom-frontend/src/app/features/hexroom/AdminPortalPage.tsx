@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Header, Footer } from '../home/components';
 import { useAuth } from '@/app/context/useAuth';
-import { money } from '@/lib/hexroom-api';
-import { MOCK_ROOMS_DATA } from '@/lib/mock-data';
+import { money, request, type ApiRoom, type Page } from '@/lib/hexroom-api';
 import {
     ShieldCheck, Users, Building2, Banknote, AlertCircle, CheckCircle2,
     Search, Filter, Lock, Unlock, UserCheck, Trash2, Eye, ExternalLink,
@@ -118,6 +117,7 @@ const DEFAULT_REPORTS: ViolationReport[] = [
 
 export function AdminPortalPage() {
     const { user } = useAuth();
+    const [platformRooms, setPlatformRooms] = useState<ApiRoom[]>([]);
     const [users, setUsers] = useState<ManagedUser[]>([]);
     const [reports, setReports] = useState<ViolationReport[]>([]);
     const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'rooms' | 'reports'>('overview');
@@ -125,6 +125,12 @@ export function AdminPortalPage() {
     const [roleFilter, setRoleFilter] = useState<string>('ALL');
 
     useEffect(() => {
+        request<Page<ApiRoom>>('/rooms?limit=50')
+            .then(res => {
+                if (res?.items) setPlatformRooms(res.items);
+            })
+            .catch(() => setPlatformRooms([]));
+
         try {
             const storedUsers = localStorage.getItem('hexroom_admin_users');
             if (storedUsers) {
@@ -254,7 +260,7 @@ export function AdminPortalPage() {
                             <span>PHÒNG TRỌ TOÀN SÀN</span>
                             <Building2 size={16} style={{ color: '#6366F1' }} />
                         </div>
-                        <div style={{ fontSize: 28, fontWeight: 850, color: '#0F172A' }}>{MOCK_ROOMS_DATA.length}</div>
+                        <div style={{ fontSize: 28, fontWeight: 850, color: '#0F172A' }}>{platformRooms.length}</div>
                         <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>100% minh bạch chi phí</div>
                     </div>
 
@@ -274,7 +280,7 @@ export function AdminPortalPage() {
                         {[
                             { key: 'overview', label: '📊 Tổng quan nền tảng' },
                             { key: 'users', label: `👥 Quản lý Người Dùng & Phân Quyền (${users.length})` },
-                            { key: 'rooms', label: `🏠 Quản lý Phòng Trọ Toàn Sàn (${MOCK_ROOMS_DATA.length})` },
+                            { key: 'rooms', label: `🏠 Quản lý Phòng Trọ Toàn Sàn (${platformRooms.length})` },
                             { key: 'reports', label: `🚨 Báo Cáo Vi Phạm (${reports.length})` }
                         ].map((t) => (
                             <button
@@ -452,34 +458,44 @@ export function AdminPortalPage() {
                     {/* TAB 3: QUẢN LÝ PHÒNG TRỌ TOÀN SÀN */}
                     {activeTab === 'rooms' && (
                         <div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                                {MOCK_ROOMS_DATA.map((room) => (
-                                    <div key={room.id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                                        <div>
-                                            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                                                <img src={room.images[0]} alt={room.roomName} style={{ width: 68, height: 68, borderRadius: 10, objectFit: 'cover' }} />
-                                                <div>
-                                                    <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', margin: 0 }}>{room.roomName}</h4>
-                                                    <div style={{ fontSize: 12, color: '#059669', fontWeight: 650, marginTop: 2 }}>{room.rentalTitle}</div>
-                                                    <div style={{ fontSize: 14, fontWeight: 850, color: '#0F172A', marginTop: 4 }}>{money(room.price)}/tháng</div>
+                            {platformRooms.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '36px 0', color: '#64748B', fontSize: 14 }}>
+                                    Chưa có phòng trọ nào trên hệ thống.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                                    {platformRooms.map((room) => (
+                                        <div key={room.id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                            <div>
+                                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                                                    <img
+                                                        src={room.images?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'}
+                                                        alt={room.roomName}
+                                                        style={{ width: 68, height: 68, borderRadius: 10, objectFit: 'cover' }}
+                                                    />
+                                                    <div>
+                                                        <h4 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', margin: 0 }}>{room.roomName}</h4>
+                                                        <div style={{ fontSize: 12, color: '#059669', fontWeight: 650, marginTop: 2 }}>{room.rentalTitle}</div>
+                                                        <div style={{ fontSize: 14, fontWeight: 850, color: '#0F172A', marginTop: 4 }}>{money(room.price)}/tháng</div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: 11, fontWeight: 750, color: '#065F46', background: '#ECFDF5', padding: '3px 8px', borderRadius: 6 }}>
-                                                ✅ Đã kiểm định 100%
-                                            </span>
-                                            <Link
-                                                to={`/room/${room.id}`}
-                                                style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', textDecoration: 'none' }}
-                                            >
-                                                Xem công khai ↗
-                                            </Link>
+                                            <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: 11, fontWeight: 750, color: '#065F46', background: '#ECFDF5', padding: '3px 8px', borderRadius: 6 }}>
+                                                    ✅ Đã kiểm định 100%
+                                                </span>
+                                                <Link
+                                                    to={`/room/${room.id}`}
+                                                    style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', textDecoration: 'none' }}
+                                                >
+                                                    Xem công khai ↗
+                                                </Link>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 
