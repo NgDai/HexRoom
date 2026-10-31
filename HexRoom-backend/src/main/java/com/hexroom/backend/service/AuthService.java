@@ -198,17 +198,55 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
+        // Completion is recorded only after an explicit, valid update of that section.
+        // Supplying profile information never grants identity, phone or email verification.
+        if (request.getCompletionSection() != null) {
+            switch (request.getCompletionSection()) {
+                case IDENTITY -> {
+                    if (request.getIdentityCardNumber() == null || !request.getIdentityCardNumber().matches("[0-9]{12}")) {
+                        throw new BadRequestException("Số CCCD phải gồm đúng 12 chữ số");
+                    }
+                    user.setIdentityInfoUpdated(true);
+                }
+                case PHONE -> {
+                    if (request.getPhone() == null || !request.getPhone().trim().matches("(?:0|\\+84)[35789][0-9]{8}")) {
+                        throw new BadRequestException("Vui lòng nhập số điện thoại Việt Nam hợp lệ");
+                    }
+                    user.setPhoneInfoUpdated(true);
+                }
+                case PERSONAL -> {
+                    if (request.getFullName() == null || request.getFullName().isBlank()
+                            || !List.of("Nam", "Nữ", "Khác", "Không tiết lộ").contains(request.getGender() == null ? "" : request.getGender())) {
+                        throw new BadRequestException("Vui lòng nhập họ tên và chọn giới tính");
+                    }
+                    user.setPersonalInfoUpdated(true);
+                }
+            }
+        }
+
+        if (request.getIdentityCardNumber() != null) {
+            if (!Objects.equals(user.getIdentityCardNumber(), request.getIdentityCardNumber())) {
+                user.setIsIdentityVerified(false);
+                user.setIdentityVerifiedAt(null);
+            }
+            user.setIdentityCardNumber(request.getIdentityCardNumber());
+        }
+
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             user.setFullName(request.getFullName().trim());
         }
         if (request.getPhone() != null) {
-            user.setPhone(request.getPhone().isBlank() ? null : request.getPhone().trim());
+            String phone = request.getPhone().isBlank() ? null : request.getPhone().trim();
+            if (!Objects.equals(user.getPhone(), phone)) user.setPhoneVerified(false);
+            if (phone == null || !phone.matches("(?:0|\\+84)[35789][0-9]{8}")) user.setPhoneInfoUpdated(false);
+            user.setPhone(phone);
         }
         if (request.getAvatarUrl() != null) {
             user.setAvatarUrl(request.getAvatarUrl().isBlank() ? null : request.getAvatarUrl().trim());
         }
         if (request.getGender() != null) {
             user.setGender(request.getGender().isBlank() ? null : request.getGender().trim());
+            if (user.getGender() == null) user.setPersonalInfoUpdated(false);
         }
 
         User updatedUser = userRepository.save(user);

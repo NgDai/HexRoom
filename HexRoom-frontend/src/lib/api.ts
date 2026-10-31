@@ -212,7 +212,14 @@ export async function changePasswordRequest(body: {
 /**
  * PATCH /auth/profile
  */
-export async function updateProfileRequest(updates: { fullName?: string; phone?: string; avatarUrl?: string; gender?: string | null }) {
+export async function updateProfileRequest(updates: {
+    fullName?: string;
+    phone?: string;
+    avatarUrl?: string;
+    gender?: string | null;
+    identityCardNumber?: string;
+    completionSection?: 'IDENTITY' | 'PHONE' | 'PERSONAL';
+}) {
     const res = await authFetch('/auth/profile', {
         method: 'PUT',
         body: JSON.stringify(updates),

@@ -31,6 +31,9 @@ public class UserSummaryDto {
     private String identityCardBackUrl;
     private Boolean phoneVerified;
     private Boolean emailVerified;
+    private Boolean identityInfoUpdated;
+    private Boolean phoneInfoUpdated;
+    private Boolean personalInfoUpdated;
     private String permanentAddress;
     private String dateOfBirth;
     private String identityCardIssuedDate;
@@ -55,6 +58,9 @@ public class UserSummaryDto {
                 .identityCardBackUrl(user.getIdentityCardBackUrl())
                 .phoneVerified(user.getPhoneVerified())
                 .emailVerified(user.getEmailVerified())
+                .identityInfoUpdated(Boolean.TRUE.equals(user.getIdentityInfoUpdated()))
+                .phoneInfoUpdated(Boolean.TRUE.equals(user.getPhoneInfoUpdated()))
+                .personalInfoUpdated(Boolean.TRUE.equals(user.getPersonalInfoUpdated()))
                 .permanentAddress(user.getPermanentAddress())
                 .dateOfBirth(user.getDateOfBirth())
                 .identityCardIssuedDate(user.getIdentityCardIssuedDate())

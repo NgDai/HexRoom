@@ -11,7 +11,7 @@ import {
     CheckCircle2, XCircle, Clock3, ArrowRight, MessageCircle, Flag, Eye, EyeOff,
     Shield, Moon, PawPrint, Cigarette, AlertTriangle, Target, CheckSquare, Square,
     Plus, FileText, CheckCheck, Clock, ShieldCheck, UserCheck,
-    Search, Headphones,
+    Search,
 } from 'lucide-react';
 import { LandlordVerificationModal } from '../hexroom/LandlordVerificationModal';
 import {
@@ -53,6 +53,7 @@ import {
 import { trackEvent } from '@/lib/analytics';
 import { ReviewModal, ViewFeedbackModal, ReportModal } from '@/app/features/booking-history/components';
 import { RoommateRatingModal } from './RoommateRatingModal';
+import { ProfileCompletionCard } from './ProfileCompletionCard';
 import { RoommateProfileEditModal, type RoommateProfileFormData } from '@/app/features/roommate/RoommateProfileEditModal';
 import { ImageWithFallback } from '@/app/components/ImageWithFallback';
 import type { ReviewData, ReportData, FeedbackStatus } from '@/app/features/booking-history/types';
@@ -942,12 +943,12 @@ export function ProfilePage() {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50/70 dark:bg-background">
+        <div className="hx-profile-page min-h-screen bg-background">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
             <main className="w-full max-w-[1740px] 2xl:max-w-[1820px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                 <div className="flex flex-col xl:flex-row gap-6 items-start">
                     {/* ── CỘT TRÁI (LEFT SIDEBAR): Hồ sơ & Điểm tin cậy, Thống kê, Phím tắt ── */}
-                    <aside className="hidden xl:flex xl:flex-col xl:w-72 2xl:w-80 shrink-0 space-y-5 xl:sticky xl:top-24">
+                    <aside className="hx-profile-sidebar shrink-0 space-y-5 xl:sticky xl:top-24">
                         {/* Card 1: Hồ sơ & Chỉ số tin cậy */}
                         <div className="bg-card rounded-2xl border border-border shadow-xs p-5 space-y-4">
                             <div className="flex items-center gap-3">
@@ -971,56 +972,30 @@ export function ProfilePage() {
                                 </div>
                             </div>
 
-                            {/* Chỉ số uy tín Trust Score */}
-                            <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground font-medium flex items-center gap-1.5">
-                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                        Chỉ số uy tín
-                                    </span>
-                                    <span className="font-bold text-emerald-600">100% Hoàn hảo</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                                    <div className="h-full bg-linear-to-r from-emerald-500 to-teal-500 rounded-full w-full" />
-                                </div>
-                                <div className="space-y-1 pt-1 text-[11px]">
-                                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-                                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                        <span>Đã đối chiếu CCCD 12 số</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-                                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                        <span>Số điện thoại chính chủ (OTP)</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-                                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                        <span>Tài khoản xác thực an toàn</span>
-                                    </div>
-                                </div>
-                            </div>
+                            <ProfileCompletionCard />
 
                             {/* Thống kê nhanh */}
                             <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
                                 {isLandlord ? (
                                     <>
                                         <div className="p-2.5 rounded-xl bg-muted/20 border border-border text-center">
-                                            <div className="text-base font-bold text-foreground">{landlordRentals.length > 0 ? landlordRentals.length : 2}</div>
+                                            <div className="text-base font-bold text-foreground">{landlordRentals.length}</div>
                                             <div className="text-[11px] text-muted-foreground mt-0.5">Phòng quản lý</div>
                                         </div>
                                         <div className="p-2.5 rounded-xl bg-muted/20 border border-border text-center">
-                                            <div className="text-base font-bold text-emerald-600">5.0 ⭐</div>
-                                            <div className="text-[11px] text-muted-foreground mt-0.5">Đánh giá uy tín</div>
+                                            <div className="text-sm font-semibold text-foreground">{isLandlordVerified ? 'Hoàn tất' : 'Chưa có'}</div>
+                                            <div className="text-[11px] text-muted-foreground mt-0.5">Xác thực danh tính</div>
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         <div className="p-2.5 rounded-xl bg-muted/20 border border-border text-center">
-                                            <div className="text-base font-bold text-foreground">{bookings.length > 0 ? bookings.length : 2}</div>
+                                            <div className="text-base font-bold text-foreground">{bookings.length}</div>
                                             <div className="text-[11px] text-muted-foreground mt-0.5">Lịch xem phòng</div>
                                         </div>
                                         <div className="p-2.5 rounded-xl bg-muted/20 border border-border text-center">
-                                            <div className="text-base font-bold text-primary">95%</div>
-                                            <div className="text-[11px] text-muted-foreground mt-0.5">Hợp bạn ghép</div>
+                                            <div className="text-sm font-semibold text-foreground">{roommateProfile ? 'Đã tạo' : 'Chưa tạo'}</div>
+                                            <div className="text-[11px] text-muted-foreground mt-0.5">Hồ sơ ở ghép</div>
                                         </div>
                                     </>
                                 )}
@@ -1147,10 +1122,10 @@ export function ProfilePage() {
                         <div className="p-4 rounded-2xl bg-linear-to-br from-primary/5 via-muted/30 to-card border border-border text-xs space-y-2">
                             <div className="font-semibold text-foreground flex items-center gap-1.5">
                                 <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                                <span>Thành viên HexRoom Trust</span>
+                                <span>Cần hỗ trợ?</span>
                             </div>
                             <p className="text-muted-foreground text-[11px] leading-relaxed">
-                                Tài khoản của bạn được áp dụng chính sách bảo vệ thông tin và hỗ trợ kết nối khách thuê an toàn 24/7.
+                                <a href="mailto:support@hexroom.vn" className="hover:text-primary">support@hexroom.vn</a>
                             </p>
                         </div>
                     </aside>
@@ -2886,106 +2861,7 @@ export function ProfilePage() {
                 )}
             </div>
 
-            {/* ── CỘT PHẢI (RIGHT SIDEBAR): An toàn bảo mật, Hotline 24/7, Cẩm nang & Mẹo ── */}
-            <aside className="hidden xl:flex xl:flex-col xl:w-72 2xl:w-80 shrink-0 space-y-5 xl:sticky xl:top-24">
-                {/* Card 1: Trung tâm An toàn & Cam kết HexRoom */}
-                <div className="bg-card rounded-2xl border border-border shadow-xs p-5 space-y-3">
-                    <div className="flex items-center gap-2 text-foreground font-heading font-semibold text-sm">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 shrink-0">
-                            <ShieldCheck className="w-4 h-4" />
-                        </div>
-                        <span>An toàn & Quyền riêng tư</span>
-                    </div>
 
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                        Cam kết bảo vệ dữ liệu người dùng và môi trường thuê trọ an toàn, minh bạch theo tiêu chuẩn HexRoom.
-                    </p>
-
-                    <div className="space-y-2.5 pt-2 border-t border-border text-xs">
-                        <div className="flex items-start gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-foreground">Bảo mật thông tin CCCD</p>
-                                <p className="text-muted-foreground text-[11px]">Mã hóa AES-256 an toàn chuẩn ngân hàng</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-foreground">Xác thực số điện thoại</p>
-                                <p className="text-muted-foreground text-[11px]">Chính chủ nhận mã OTP qua SMS</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-foreground">Minh bạch 100% chi phí</p>
-                                <p className="text-muted-foreground text-[11px]">Không thu phí môi giới trá hình</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-foreground">Bảo vệ tiền đặt cọc</p>
-                                <p className="text-muted-foreground text-[11px]">Chính sách hoàn cọc rõ ràng, công bằng</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Card 2: Tổng đài hỗ trợ 24/7 */}
-                <div className="bg-card rounded-2xl border border-border shadow-xs p-5 space-y-3.5">
-                    <div className="flex items-center gap-2 text-foreground font-heading font-semibold text-sm">
-                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                            <Headphones className="w-4 h-4" />
-                        </div>
-                        <span>Tổng đài hỗ trợ 24/7</span>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/15 space-y-1">
-                        <div className="text-[11px] text-muted-foreground font-medium">Hotline CSKH & Đối tác (Miễn phí)</div>
-                        <div className="text-lg font-bold text-primary font-mono tracking-wide">1900 8888</div>
-                        <div className="text-[11px] text-muted-foreground">Phím 1: Chủ trọ | Phím 2: Người thuê</div>
-                    </div>
-
-                    <div className="space-y-2 text-xs">
-                        <a
-                            href="https://zalo.me"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 font-semibold transition-colors"
-                        >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>Chat Zalo hỗ trợ tức thì</span>
-                        </a>
-                        <div className="flex items-center justify-between text-muted-foreground text-[11px] pt-1">
-                            <span>Email hỗ trợ:</span>
-                            <span className="font-medium text-foreground">hotro@hexroom.vn</span>
-                        </div>
-                        <div className="flex items-center justify-between text-muted-foreground text-[11px]">
-                            <span>Thời gian trực:</span>
-                            <span className="font-medium text-foreground">08:00 – 22:30 hàng ngày</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Card 3: Góc cẩm nang & Mẹo hữu ích */}
-                <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-2.5 text-xs">
-                    <div className="flex items-center gap-1.5 font-semibold text-foreground">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span>{isLandlord ? 'Mẹo cho Chủ nhà' : 'Mẹo cho Người thuê'}</span>
-                    </div>
-                    {isLandlord ? (
-                        <p className="text-muted-foreground text-[11px] leading-relaxed">
-                            Chụp ảnh phòng ban ngày với ánh sáng tự nhiên và công khai chi phí điện/nước giúp tin đăng của bạn tăng <strong>45% tỉ lệ hẹn xem phòng</strong> trong tuần đầu!
-                        </p>
-                    ) : (
-                        <p className="text-muted-foreground text-[11px] leading-relaxed">
-                            Nên hẹn xem phòng vào ban ngày để kiểm tra độ thông thoáng, ánh sáng tự nhiên và đối chiếu đồng hồ điện riêng trước khi đặt cọc.
-                        </p>
-                    )}
-                </div>
-            </aside>
         </div>
     </main>
 

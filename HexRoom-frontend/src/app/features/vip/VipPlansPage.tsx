@@ -197,7 +197,7 @@ export function VipPlansPage() {
                             <Crown className="w-6 h-6" />
                         </div>
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Nâng cấp EZ-Room VIP</h1>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">HexRoom VIP</h1>
                             <p className="mt-2 text-sm sm:text-base text-muted-foreground">
                                 Mở khóa tính năng cao cấp cho {roleLabel.toLowerCase()}, ưu tiên trải nghiệm và tăng hiệu quả tìm kiếm/đăng tin.
                             </p>

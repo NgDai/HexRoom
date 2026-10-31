@@ -20,6 +20,9 @@ export interface AuthUser {
     identityCardBackUrl?: string | null;
     phoneVerified?: boolean;
     emailVerified?: boolean;
+    identityInfoUpdated?: boolean;
+    phoneInfoUpdated?: boolean;
+    personalInfoUpdated?: boolean;
     permanentAddress?: string | null;
     dateOfBirth?: string | null;
     identityVerifiedAt?: string | null;

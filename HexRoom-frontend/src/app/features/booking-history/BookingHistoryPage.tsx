@@ -291,10 +291,10 @@ export function BookingHistoryPage() {
                             <Calendar size={13} /> Quản lý lịch hẹn
                         </div>
                         <h1 style={{ fontSize: 32, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: '0 0 8px' }}>
-                            Lịch sử hẹn lịch xem phòng
+                            Lịch hẹn của bạn
                         </h1>
                         <p style={{ fontSize: 15, color: '#64748B', maxWidth: 700, lineHeight: 1.6, margin: 0 }}>
-                            Theo dõi thời gian hẹn lịch xem phòng sắp tới và danh sách các phòng trọ bạn đã đi xem thực tế.
+                            Theo dõi lịch sắp tới và các phòng đã xem.
                         </p>
                     </div>
 
@@ -316,7 +316,7 @@ export function BookingHistoryPage() {
                             boxShadow: '0 2px 6px rgba(16, 185, 129, 0.15)',
                         }}
                     >
-                        ＋ Tìm thêm phòng trọ
+                        ＋ Tìm phòng
                     </Link>
                 </div>
 

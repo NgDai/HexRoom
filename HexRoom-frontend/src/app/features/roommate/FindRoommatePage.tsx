@@ -921,7 +921,7 @@ export function FindRoommatePage() {
     const accepted = matches.filter((m) => m.status === 'ACCEPTED');
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="hx-roommate-page min-h-screen bg-background">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
             <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-12">
@@ -932,7 +932,7 @@ export function FindRoommatePage() {
                             Tìm bạn ở ghép
                         </h1>
                         <p className="text-muted-foreground">
-                            Ghép phòng với người cùng giới tính và có phong cách sống tương đồng
+                            Cùng ngân sách. Hợp thói quen. Dễ chia sẻ.
                         </p>
                     </div>
 
@@ -944,7 +944,7 @@ export function FindRoommatePage() {
                                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] rounded-xl font-semibold shadow-sm transition-all text-sm"
                             >
                                 <Sparkles className="w-4 h-4" />
-                                {myRoommateProfile ? 'Quản lý hồ sơ ở ghép' : 'Đăng hồ sơ tìm bạn ở ghép'}
+                                {myRoommateProfile ? 'Hồ sơ của tôi' : 'Tạo hồ sơ'}
                             </button>
                         ) : (
                             <button
@@ -977,10 +977,10 @@ export function FindRoommatePage() {
                             </div>
                             <div>
                                 <h2 className="font-heading text-base sm:text-lg font-bold text-slate-900 mb-1">
-                                    Bạn đang tìm kiếm bạn cùng phòng phù hợp?
+                                    Bắt đầu từ hồ sơ của bạn
                                 </h2>
                                 <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                                    Đăng nhập và hoàn thành hồ sơ cá nhân để được đăng lên mục Tìm bạn ở ghép, giúp những người cùng lối sống dễ dàng tìm thấy và kết nối với bạn.
+                                    Thêm ngân sách và thói quen để nhận gợi ý phù hợp.
                                 </p>
                             </div>
                         </div>
@@ -1056,11 +1056,11 @@ export function FindRoommatePage() {
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
                                         <h2 className="font-heading text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                                            Hồ sơ tìm bạn ở ghép của bạn đang hoạt động
+                                            Hồ sơ đang hoạt động
                                         </h2>
                                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
                                             <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                                            Đang hiển thị công khai
+                                            Công khai
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 mt-2">

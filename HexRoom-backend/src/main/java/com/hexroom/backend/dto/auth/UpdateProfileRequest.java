@@ -1,6 +1,7 @@
 package com.hexroom.backend.dto.auth;
 
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,4 +23,11 @@ public class UpdateProfileRequest {
 
     @Size(max = 20, message = "Giới tính tối đa 20 ký tự")
     private String gender;
+
+    @Pattern(regexp = "[0-9]{12}", message = "Số CCCD phải gồm đúng 12 chữ số")
+    private String identityCardNumber;
+
+    public enum CompletionSection { IDENTITY, PHONE, PERSONAL }
+
+    private CompletionSection completionSection;
 }

@@ -592,17 +592,10 @@ export function RoomsPage() {
             <div className="rooms-hero">
                 <div className="rooms-hero-badge">
                     <ShieldCheck size={16} />
-                    <span>NỀN TẢNG THUÊ PHÒNG MINH BẠCH · TIÊU CHUẨN ĐỐI CHIẾU 4 BƯỚC</span>
+                    <span>KHÔNG GIAN DÀNH CHO BẠN</span>
                 </div>
                 <h1>{t('rooms.title')}</h1>
-                <p>Khám phá hệ sinh thái phòng trọ được đối chiếu thực tế tận nơi, công khai 100% biểu phí và xác minh danh tính chủ trọ uy tín.</p>
-
-                <div className="rooms-hero-trust-row">
-                    <span className="hero-trust-item"><CheckCircle2 size={14} /> 100% Đo đạc & ảnh chụp thực địa</span>
-                    <span className="hero-trust-item"><CheckCircle2 size={14} /> Minh bạch không phụ phí ẩn</span>
-                    <span className="hero-trust-item"><CheckCircle2 size={14} /> Xác thực CCCD / Sổ đỏ chính chủ</span>
-                    <span className="hero-trust-item"><CheckCircle2 size={14} /> Hợp đồng chuẩn pháp lý 3.E</span>
-                </div>
+                <p>Chọn khu vực, ngân sách và căn phòng phù hợp với bạn.</p>
             </div>
 
             <main className="w-full max-w-[100%] mx-auto px-2 sm:px-4 lg:px-6 py-4">

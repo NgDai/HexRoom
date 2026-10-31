@@ -90,6 +90,18 @@ public class User {
     @Builder.Default
     private Boolean emailVerified = false;
 
+    @Column(name = "identity_info_updated")
+    @Builder.Default
+    private Boolean identityInfoUpdated = false;
+
+    @Column(name = "phone_info_updated")
+    @Builder.Default
+    private Boolean phoneInfoUpdated = false;
+
+    @Column(name = "personal_info_updated")
+    @Builder.Default
+    private Boolean personalInfoUpdated = false;
+
     @Column(name = "permanent_address")
     private String permanentAddress;
 
