@@ -1,134 +1,133 @@
-# HexRoom Backend - Java Spring Boot 3
+# HexRoom Backend - Java Spring Boot 3 & Cloudinary
 
-Dự án backend HexRoom được chuyển đổi (port) từ mã nguồn Node.js/Express (`ez-room-be`) sang Java 21 và Spring Boot 3 chuẩn kiến trúc doanh nghiệp.
+Hệ thống backend HexRoom xây dựng trên nền tảng **Java 21 (LTS)** và **Spring Boot 3.3.4**, tích hợp lưu trữ đám mây **Cloudinary**, bảo mật **Spring Security 6 (JWT + HttpOnly Cookie)** và đối chiếu thông tin thực tế 4 hạng mục.
 
 ---
 
-## 1. Công nghệ sử dụng
+## 1. Công nghệ cốt lõi
 
 - **Ngôn ngữ:** Java 21 (LTS)
 - **Framework:** Spring Boot 3.3.4
-- **ORM / Database:** Spring Data JPA (Hibernate 6) + PostgreSQL Driver
-- **Bảo mật:** Spring Security 6 + JJWT (JSON Web Token 0.12.6) + BCrypt
+- **ORM / Database:** Spring Data JPA (Hibernate 6) + PostgreSQL Driver (kết nối Supabase / PostgreSQL)
+- **Lưu trữ đám mây:** Cloudinary Java SDK (hỗ trợ tự động fallback lưu trữ cục bộ an toàn)
+- **Bảo mật:** Spring Security 6 + JJWT (0.12.6) + BCrypt + HttpOnly Cookie
 - **Tài liệu API:** Springdoc OpenAPI 2.6.0 (Swagger UI v3)
-- **Build tool:** Maven (có sẵn Maven Wrapper `mvnw` & `mvnw.cmd`)
-- **Tiện ích:** Lombok, Jakarta Bean Validation
+- **Build tool:** Apache Maven Wrapper (`mvnw` & `mvnw.cmd`)
+- **Kiểm thử:** JUnit Jupiter 5, Mockito 5, Spring Test / MockMvc (27/27 bài kiểm thử đạt 100%)
 
 ---
 
-## 2. Bảng đối chiếu chuyển đổi (Node.js -> Java Spring Boot)
+## 2. Tài liệu Quy chuẩn & Báo cáo kỹ thuật
 
-| Thành phần Node.js (`ez-room-be`) | Thành phần Java Spring Boot (`HexRoom`) | Ghi chú |
-| :--- | :--- | :--- |
-| `server.js` | `HexRoomApplication.java`, `SecurityConfig.java`, `application.yml` | Khởi chạy ứng dụng, cấu hình CORS, Security Filter |
-| `prisma/schema.prisma` | Package `entity/` (`User`, `RefreshToken`, `Rental`, `Room`, `Location`, `Amenity`, `LifestyleProfile`, `UserPreference`, ...) | JPA Entities ánh xạ chính xác schema PostgreSQL |
-| `middleware/auth.js` | `JwtAuthenticationFilter.java`, `JwtTokenProvider.java`, `UserPrincipal.java` | Xác thực Bearer Token JWT, parse claims, stateless session |
-| `controllers/auth.controller.js` + `services/auth.service.js` | `AuthController.java` + `AuthService.java` | Đăng ký, đăng nhập, cấp refresh token cookie, đổi mật khẩu, profile, lifestyle, preferences |
-| `controllers/rental.controller.js` + `services/rental.service.js` | `RentalController.java` + `RentalService.java` | Đăng tin cho thuê, quản lý bài đăng, lọc theo quận huyện, duyệt bài |
-| `controllers/room.controller.js` + `services/room.service.js` | `RoomController.java` + `RoomService.java` | Quản lý phòng, lọc đa tiêu chí (giá, diện tích, loại phòng, vị trí), đếm lượt tìm kiếm |
-| `controllers/locations.controller.js` | `LocationController.java` + `LocationService.java` | Danh sách tỉnh/thành, quận/huyện |
-| `controllers/amenities.controller.js` | `AmenityController.java` + `AmenityService.java` | Danh mục tiện ích phòng trọ |
-| `validators/*` | Jakarta Bean Validation (`@Valid`, `@NotBlank`, `@Size`, `@DecimalMin`, ...) | Tự động validate dữ liệu DTO |
-| `routes/public.js` | `PublicController.java` | Health check endpoint `/api/public/health` |
+Toàn bộ quy chuẩn và tiến độ kiểm thử được lưu trữ tại thư mục `docs/`:
+- [`docs/business-rules.md`](file:///c:/Users/PC/Documents/HexRoom/hexroom/docs/business-rules.md): Bất biến nghiệp vụ, phân quyền vai trò, chi phí null vs 0, quy tắc 4 hạng mục kiểm định, matching 2 người, và vòng đời media.
+- [`docs/implementation-audit.md`](file:///c:/Users/PC/Documents/HexRoom/hexroom/docs/implementation-audit.md): Bảng đối chiếu thực trạng mã nguồn 8 cột theo mã yêu cầu `REQ-...`.
+- [`docs/implementation-progress.md`](file:///c:/Users/PC/Documents/HexRoom/hexroom/docs/implementation-progress.md): Nhật ký phiên làm việc, trạng thái module và các bước tiếp theo.
+- [`docs/test-report.md`](file:///c:/Users/PC/Documents/HexRoom/hexroom/docs/test-report.md): Báo cáo chi tiết 27 bài kiểm thử và đối chiếu 11 kịch bản chấp nhận bắt buộc.
 
 ---
 
 ## 3. Cấu trúc thư mục dự án
 
 ```text
-c:\Users\PC\Documents\HexRoom\Production\
+HexRoom-backend/
 ├── .mvn/wrapper/                  # Maven Wrapper files
 ├── mvnw & mvnw.cmd               # Maven Wrapper script
 ├── pom.xml                       # Maven dependencies & build configuration
+├── .env.example                  # File cấu hình mẫu với placeholder an toàn
 ├── src/
 │   ├── main/
 │   │   ├── java/com/hexroom/backend/
-│   │   │   ├── HexRoomApplication.java    # Main Entry Point
+│   │   │   ├── HexRoomApplication.java    # Điểm khởi chạy ứng dụng
 │   │   │   ├── common/                    # ApiResponse, PagedResponse
-│   │   │   ├── config/                    # SecurityConfig, OpenApiConfig
+│   │   │   ├── config/                    # SecurityConfig, CloudinaryConfig, OpenApiConfig, DataSeeder
 │   │   │   ├── security/                  # JwtTokenProvider, JwtAuthenticationFilter, UserPrincipal
-│   │   │   ├── entity/                    # JPA Entities (User, Rental, Room, Location, Amenity, ...)
+│   │   │   ├── entity/                    # JPA Entities (User, Rental, Room, RoomInspection, RoommateProfile...)
 │   │   │   │   └── enums/                 # UserRole, UserStatus, RentalStatus, RoomStatus, RoomType
 │   │   │   ├── repository/                # Spring Data JPA Repositories
-│   │   │   ├── dto/                       # Request/Response DTOs (auth, rental, room, location, amenity)
-│   │   │   ├── service/                   # Business Services (Auth, Rental, Room, Location, Amenity)
-│   │   │   ├── controller/                # REST Controllers
-│   │   │   └── exception/                 # GlobalExceptionHandler, AppException, NotFound, Forbidden...
+│   │   │   ├── dto/                       # Request/Response DTOs (auth, rental, room, roommate...)
+│   │   │   ├── service/                   # Dịch vụ nghiệp vụ (Auth, Room, Rental, Inspection, Roommate, Cloudinary...)
+│   │   │   ├── controller/                # REST Controllers (Auth, Room, Rental, Inspection, Roommate, Upload...)
+│   │   │   └── exception/                 # GlobalExceptionHandler, AppException, ResourceNotFound...
 │   │   └── resources/
-│   │       └── application.yml            # Database, JWT, CORS, Swagger configs
+│   │       └── application.yml            # Cấu hình Spring Boot, Database, JWT, Cloudinary
+│   └── test/
+│       └── java/com/hexroom/backend/
+│           ├── HexRoomApiSecurityTest.java # Kiểm thử An ninh API & Phân quyền (MockMvc)
+│           └── service/HexRoomCoreTest.java # Kiểm thử Nghiệp vụ lõi, Matching, Invariant, Cloudinary
 ```
 
 ---
 
-## 4. Hướng dẫn chạy dự án
+## 4. Hướng dẫn Khởi chạy & Kiểm thử
 
-### Cách 1: Sử dụng IntelliJ IDEA
-1. Mở thư mục `c:\Users\PC\Documents\HexRoom\Production` trong IntelliJ IDEA.
-2. IntelliJ sẽ tự động nhận diện dự án Maven từ file `pom.xml`.
-3. Chạy file `src/main/java/com/hexroom/backend/HexRoomApplication.java`.
-
-### Cách 2: Sử dụng dòng lệnh (Terminal / PowerShell)
+### Bước 1: Cấu hình Môi trường
+Sao chép `.env.example` thành `.env` hoặc thiết lập các biến môi trường:
 ```powershell
-# Biên dịch dự án
-.\mvnw.cmd clean compile
+cp .env.example .env
+```
+*(Tham khảo `.env.example` để cấu hình PostgreSQL, JWT Secret, và Cloudinary API credentials)*
 
-# Chạy ứng dụng
+### Bước 2: Chạy Kiểm thử Toàn diện (Unit & Slice Tests)
+```powershell
+cd HexRoom-backend
+.\mvnw.cmd test
+```
+*Tất cả 27 bài kiểm thử an ninh và nghiệp vụ sẽ được thực thi và xác nhận `BUILD SUCCESS`.*
+
+### Bước 3: Khởi chạy Ứng dụng Backend
+```powershell
 .\mvnw.cmd spring-boot:run
 ```
+Máy chủ sẽ lắng nghe tại cổng `8080` (hoặc cổng cấu hình qua biến `PORT`).
 
 ---
 
 ## 5. Tài liệu API (Swagger UI)
 
-Khi ứng dụng đang chạy (mặc định cổng 8080):
+Khi backend đang chạy:
 - **Swagger UI:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 - **OpenAPI JSON Spec:** [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
 
-*(Swagger UI đã được tích hợp sẵn nút "Authorize" hỗ trợ nhập JWT Bearer Token để kiểm thử trực tiếp các API bảo mật)*
-
 ---
 
-## 6. Các API chính đã chuyển đổi
+## 6. Danh mục API chính
 
-### 6.1. Auth & Người dùng (`/api/auth`)
-- `GET /api/auth/suggest-password`: Gợi ý mật khẩu mạnh
-- `POST /api/auth/register`: Đăng ký tài khoản (hỗ trợ phân vai trò `TENANT`, `LANDLORD`)
-- `POST /api/auth/login`: Đăng nhập, nhận Access Token (JWT) và Refresh Token qua HttpOnly Cookie
-- `POST /api/auth/refresh`: Cấp lại Access Token từ Refresh Token
-- `POST /api/auth/logout`: Đăng xuất phiên hiện tại
-- `POST /api/auth/logout-all`: Đăng xuất toàn bộ các thiết bị
-- `POST /api/auth/change-password`: Đổi mật khẩu
-- `PUT /api/auth/profile`: Cập nhật thông tin cá nhân
-- `GET /api/auth/lifestyle` & `PUT /api/auth/lifestyle`: Quản lý thông tin thói quen sống
-- `GET /api/auth/preference` & `PUT /api/auth/preference`: Quản lý tiêu chí tìm trọ / tìm bạn cùng phòng
+### 6.1. Xác thực & Tài khoản (`/api/auth`)
+- `POST /api/auth/register`: Đăng ký tài khoản (`TENANT` hoặc `LANDLORD`).
+- `POST /api/auth/login`: Đăng nhập, nhận Access Token (15 phút) và Refresh Token qua Cookie HttpOnly an toàn.
+- `POST /api/auth/refresh`: Cấp mới Access Token từ Refresh Token.
+- `POST /api/auth/logout`: Thu hồi token và xóa cookie phiên.
+- `GET /api/auth/me`: Lấy thông tin tài khoản đang đăng nhập.
 
 ### 6.2. Nhà trọ & Bài đăng (`/api/rentals`)
-- `GET /api/rentals`: Tìm kiếm danh sách bài đăng cho thuê (lọc theo quận, thành phố, trạng thái)
-- `GET /api/rentals/{id}`: Chi tiết bài đăng cho thuê và các phòng thuộc bài đăng
-- `POST /api/rentals`: Đăng tin cho thuê mới (dành cho `LANDLORD`, `ADMIN`)
-- `PATCH /api/rentals/{id}/status`: Duyệt bài đăng (dành cho `MODERATOR`, `ADMIN`)
-- `DELETE /api/rentals/{id}`: Xóa bài đăng
+- `GET /api/rentals`: Tìm kiếm bài đăng cho thuê đã duyệt (`AVAILABLE`).
+- `GET /api/rentals/{id}`: Chi tiết bài đăng và danh sách phòng thuộc bài đăng.
+- `GET /api/rentals/mine`: Danh sách nhà trọ do chính chủ nhà sở hữu.
+- `POST /api/rentals`: Đăng tin nhà trọ mới (chủ nhà).
+- `PATCH /api/rentals/{id}/status`: Duyệt bài đăng (`MODERATOR`, `ADMIN`).
 
 ### 6.3. Phòng trọ (`/api/rooms`)
-- `GET /api/rooms`: Tìm kiếm và lọc phòng trọ nâng cao (giá, diện tích, loại phòng, vị trí, từ khóa)
-- `GET /api/rooms/{id}`: Xem chi tiết phòng trọ (tự động tăng bộ đếm lượt xem)
-- `POST /api/rooms`: Tạo phòng mới thuộc bài đăng cho thuê
-- `PUT /api/rooms/{id}`: Cập nhật phòng
-- `DELETE /api/rooms/{id}`: Xóa phòng
+- `GET /api/rooms`: Tìm kiếm và lọc phòng trọ nâng cao (giá, diện tích, vị trí, từ khóa, sắp xếp ổn định, trần phân trang 100).
+- `GET /api/rooms/{id}`: Chi tiết phòng trọ (chỉ hiển thị khi cả Room và Rental đều `AVAILABLE`).
+- `GET /api/rooms/manage`: Danh sách quản lý phòng theo quyền hạn người dùng.
+- `POST /api/rooms/{id}/confirm-availability`: Chủ nhà xác nhận phòng vẫn còn trống.
+- `PUT /api/rooms/{id}`: Chỉnh sửa phòng (tự động hạ về `PENDING`, reset xác nhận còn phòng và đánh dấu `informationChangedAt`).
 
-### 6.4. Địa điểm & Tiện ích (`/api/locations`, `/api/amenities`)
-- `GET /api/locations`: Danh sách địa điểm
-- `GET /api/locations/cities`: Danh sách thành phố
-- `GET /api/locations/districts`: Danh sách quận huyện
-- `GET /api/amenities`: Danh mục tiện ích (WiFi, máy lạnh, máy giặt, gác lửng, tủ lạnh...)
+### 6.4. Đối chiếu Thực tế 4 Hạng mục (`/api/rooms/{roomId}/inspections`)
+- `GET /api/rooms/{roomId}/inspections`: Xem lịch sử kiểm tra 4 hạng mục (`CONDITION`, `PRICE_AND_FEES`, `IMAGES`, `RENTAL_RIGHTS`).
+- `POST /api/rooms/{roomId}/inspections`: Nhân viên kiểm định lập biên bản thẩm định kèm ảnh bằng chứng và thời hạn hiệu lực.
+- `POST /api/rooms/{roomId}/inspections/request`: Chủ nhà gửi yêu cầu điều phối kiểm định viên tới khảo sát thực địa.
 
----
+### 6.5. Tìm bạn ở ghép 2 người (`/api/roommates`, `/api/roommate-connections`)
+- `GET /api/roommates/profile`: Xem hồ sơ ở ghép cá nhân.
+- `PUT /api/roommates/profile`: Cập nhật tiêu chí ghép phòng (ngân sách, ngày dọn vào, hút thuốc, thú cưng, giờ ngủ).
+- `GET /api/roommates/suggestions`: Gợi ý bạn cùng phòng thỏa mãn điều kiện cứng 2 chiều (Ẩn email & số điện thoại bảo vệ riêng tư).
+- `GET /api/roommates/profile/{userId}`: Xem hồ sơ người khác (Chỉ hiện liên hệ nếu đã có kết nối `ACCEPTED`).
+- `POST /api/roommate-connections/invite`: Gửi lời mời kết nối ghép phòng.
+- `POST /api/roommate-connections/{id}/accept`: Chấp nhận lời mời và mở kênh trò chuyện trực tiếp.
 
-## 7. Các giai đoạn tiếp theo (Next Phases)
-
-Khi bạn cần mở rộng thêm các tính năng tiếp theo từ `ez-room-be`:
-1. **Preorder & Booking:** Đặt cọc thuê phòng, xác nhận lịch thuê từ chủ nhà (`RoomRentalPeriod`).
-2. **Thanh toán (Payment Gateway):** Tích hợp PayOS Java SDK hoặc VNPay để nạp ví và cọc online.
-3. **Realtime Chat & Notification:** Spring WebSocket (STOMP) thay thế Socket.io.
-4. **Moderator & Admin Reports:** Xử lý hàng đợi kiểm duyệt (`moderation_queue`), báo cáo vi phạm (`reports`).
-5. **AI Search & Matching:** Tích hợp Spring AI hoặc gọi Gemini/OpenAI API cho tính năng gợi ý người ở ghép và tìm kiếm ngữ nghĩa.
+### 6.6. Tải Media & Cloudinary (`/api/upload`)
+- `POST /api/upload/image`: Tải ảnh thông thường (avatar, bài viết). Yêu cầu đăng nhập, tối đa 10MB (JPEG, PNG, WebP, GIF).
+- `POST /api/upload/rental-image`: Tải ảnh phòng trọ/nhà trọ. Yêu cầu quyền `LANDLORD`, `MODERATOR`, `ADMIN`.
+- `POST /api/upload/document`: Tải tài liệu/CCCD (PDF, JPEG, PNG), tối đa 20MB.

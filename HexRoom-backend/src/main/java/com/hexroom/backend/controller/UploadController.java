@@ -1,6 +1,7 @@
 package com.hexroom.backend.controller;
 
 import com.hexroom.backend.common.ApiResponse;
+import com.hexroom.backend.exception.BadRequestException;
 import com.hexroom.backend.service.CloudinaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,6 +21,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/upload")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Upload", description = "Tải ảnh và tài liệu lên Cloudinary")
 public class UploadController {
 
@@ -33,7 +36,7 @@ public class UploadController {
     ) throws IOException {
         MultipartFile file = fileParam != null ? fileParam : filePart;
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn file ảnh hợp lệ"));
+            throw new BadRequestException("Vui lòng chọn file ảnh hợp lệ");
         }
 
         Map<String, Object> result = cloudinaryService.upload(file, folder);
@@ -50,13 +53,14 @@ public class UploadController {
 
     @Operation(summary = "Tải ảnh phòng trọ / nhà cho thuê lên Cloudinary")
     @PostMapping(value = "/rental-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('LANDLORD', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<Map<String, Object>> uploadRentalImage(
             @RequestParam(value = "file", required = false) MultipartFile fileParam,
             @RequestPart(value = "file", required = false) MultipartFile filePart
     ) throws IOException {
         MultipartFile file = fileParam != null ? fileParam : filePart;
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn file ảnh hợp lệ"));
+            throw new BadRequestException("Vui lòng chọn file ảnh hợp lệ");
         }
 
         Map<String, Object> result = cloudinaryService.upload(file, "hexroom/rentals");
@@ -79,7 +83,7 @@ public class UploadController {
     ) throws IOException {
         MultipartFile file = fileParam != null ? fileParam : filePart;
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn file tài liệu hợp lệ"));
+            throw new BadRequestException("Vui lòng chọn file tài liệu hợp lệ");
         }
 
         Map<String, Object> result = cloudinaryService.upload(file, "hexroom/documents");

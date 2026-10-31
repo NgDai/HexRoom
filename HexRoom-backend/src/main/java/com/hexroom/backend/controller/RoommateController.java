@@ -20,7 +20,10 @@ public class RoommateController {
         return ApiResponse.success(service.suggestions(user.getId()));
     }
     @GetMapping("/profile/{userId}")
-    public ApiResponse<RoommateService.Suggestion> publicProfile(@PathVariable java.util.UUID userId) {
-        return ApiResponse.success(service.getPublicProfile(userId));
+    public ApiResponse<RoommateService.Suggestion> publicProfile(
+            @PathVariable java.util.UUID userId,
+            @AuthenticationPrincipal UserPrincipal viewer) {
+        java.util.UUID viewerId = viewer != null ? viewer.getId() : null;
+        return ApiResponse.success(service.getPublicProfile(viewerId, userId));
     }
 }

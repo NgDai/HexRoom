@@ -1,5 +1,6 @@
 package com.hexroom.backend.service;
 import com.hexroom.backend.dto.room.RoommateProfileRequest;
+import com.hexroom.backend.entity.RoommateConnection;
 import com.hexroom.backend.entity.RoommateProfile;
 import com.hexroom.backend.exception.BadRequestException;
 import com.hexroom.backend.repository.*;
@@ -18,6 +19,7 @@ public class RoommateService {
     private final RoommateBlockRepository blocks;
     private final LifestyleProfileRepository lifestyles;
     private final UserPreferenceRepository preferences;
+    private final RoommateConnectionRepository connections;
 
     public record PublicProfile(UUID id, String nickname, String city, BigDecimal budgetMin, BigDecimal budgetMax,
             LocalDate moveInDate, boolean smoking, boolean hasPets, boolean acceptSmoking, boolean acceptPets,
@@ -130,7 +132,8 @@ public class RoommateService {
                     String name = (other.getNickname() != null && !other.getNickname().isBlank())
                             ? other.getNickname()
                             : (u.getFullName() != null ? u.getFullName() : "Bạn cùng phòng");
-                    UserView userView = new UserView(u.getId(), name, u.getAvatarUrl(), u.getGender(), u.getEmail(), u.getPhone());
+                    // Privacy protection: email and phone are strictly hidden until a connection is accepted
+                    UserView userView = new UserView(u.getId(), name, u.getAvatarUrl(), u.getGender(), null, null);
 
                     LifestyleView lifeView = lifestyles.findByUserId(u.getId())
                             .map(l -> new LifestyleView(l.getSmoking(), l.getDrinking(), l.getPetsAllowed(),
@@ -304,13 +307,36 @@ public class RoommateService {
 
     @Transactional(readOnly = true)
     public Suggestion getPublicProfile(UUID targetUserId) {
+        return getPublicProfile(null, targetUserId);
+    }
+
+    @Transactional(readOnly = true)
+    public Suggestion getPublicProfile(UUID viewerId, UUID targetUserId) {
         com.hexroom.backend.entity.User u = users.findById(targetUserId)
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy người dùng"));
         RoommateProfile profile = profiles.findByUserId(targetUserId).orElse(null);
         String name = (profile != null && profile.getNickname() != null && !profile.getNickname().isBlank())
                 ? profile.getNickname()
                 : (u.getFullName() != null ? u.getFullName() : "Người dùng");
-        UserView userView = new UserView(u.getId(), name, u.getAvatarUrl(), u.getGender(), u.getEmail(), u.getPhone());
+
+        // Contact information is disclosed only if viewing own profile or if an accepted connection exists
+        boolean canViewContact = false;
+        if (viewerId != null) {
+            if (viewerId.equals(targetUserId)) {
+                canViewContact = true;
+            } else {
+                String pairKey = targetUserId.toString().compareTo(viewerId.toString()) < 0
+                        ? targetUserId + ":" + viewerId
+                        : viewerId + ":" + targetUserId;
+                canViewContact = connections.findByPairKey(pairKey)
+                        .map(c -> c.getStatus() == RoommateConnection.Status.ACCEPTED)
+                        .orElse(false);
+            }
+        }
+
+        String email = canViewContact ? u.getEmail() : null;
+        String phone = canViewContact ? u.getPhone() : null;
+        UserView userView = new UserView(u.getId(), name, u.getAvatarUrl(), u.getGender(), email, phone);
 
         LifestyleView lifeView = lifestyles.findByUserId(u.getId())
                 .map(l -> new LifestyleView(l.getSmoking(), l.getDrinking(), l.getPetsAllowed(),
@@ -335,7 +361,9 @@ public class RoommateService {
 
         PublicProfile publicProfile = profile != null ? PublicProfile.of(profile) : null;
         List<String> matchNotes = List.of(profile != null && profile.isVisible() ? "Hồ sơ công khai tìm bạn ở ghép" : "Hồ sơ người dùng HexRoom");
-        List<String> discussNotes = List.of("Liên hệ trực tiếp qua email hoặc số điện thoại để trao đổi chi tiết về tiền cọc, chi phí và thời gian chuyển vào");
+        List<String> discussNotes = canViewContact
+                ? List.of("Đã kết nối thành công. Có thể trao đổi qua tin nhắn HexRoom hoặc liên hệ trực tiếp qua số điện thoại/email.")
+                : List.of("Gửi lời mời kết nối trên HexRoom để mở tính năng trò chuyện và trao đổi chi tiết về tiền cọc, chi phí và thời gian chuyển vào.");
 
         return new Suggestion(userView, lifeView, prefView, publicProfile, matchNotes, discussNotes, 85);
     }

@@ -60,23 +60,23 @@ public class SecurityConfig {
                                 "/api/auth/login", "/api/auth/register", "/api/auth/refresh",
                                 "/api/auth/logout", "/api/auth/suggest-password",
                                 "/api/public/**",
-                                "/api/upload/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
                         // Public GET endpoints for browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/media/images/**").permitAll()
+                        // Role-specific access control (MUST be placed before generic wildcards)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/moderator/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR")
+                        .requestMatchers("/api/inspections/**", "/api/rooms/*/inspections/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR", "LANDLORD")
+                        .requestMatchers("/api/rooms/manage", "/api/rentals/mine").hasAnyRole("LANDLORD", "ADMIN", "MODERATOR")
+                        .requestMatchers("/api/upload/**").authenticated()
                         // Public GET endpoints for browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/locations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/amenities/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rentals/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**").permitAll()
-                        // Role-specific access control
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/moderator/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR")
-                        .requestMatchers("/api/inspections/**", "/api/rooms/*/inspections/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR", "LANDLORD")
-                        .requestMatchers("/api/rooms/manage", "/api/rentals/mine").hasAnyRole("LANDLORD", "ADMIN", "MODERATOR")
                         // Any other request must be authenticated
                         .anyRequest().authenticated()
                 );

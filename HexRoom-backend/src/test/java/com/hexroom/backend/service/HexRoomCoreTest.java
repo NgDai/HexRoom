@@ -135,4 +135,50 @@ class HexRoomCoreTest {
         b.setCity(a.getCity()); b.setBudgetMin(BigDecimal.valueOf(4000000)); assertFalse(RoommateService.compatible(a,b));
         b.setBudgetMin(BigDecimal.ONE); b.setMoveInDate(LocalDate.now().plusDays(31)); assertFalse(RoommateService.compatible(a,b));
     }
+    @Test void candidateContactsAreRedactedUnlessConnected() {
+        RoommateProfileRepository profiles = mock(RoommateProfileRepository.class);
+        UserRepository users = mock(UserRepository.class);
+        RoommateBlockRepository blocks = mock(RoommateBlockRepository.class);
+        LifestyleProfileRepository lifestyles = mock(LifestyleProfileRepository.class);
+        UserPreferenceRepository preferences = mock(UserPreferenceRepository.class);
+        RoommateConnectionRepository connections = mock(RoommateConnectionRepository.class);
+        RoommateService roommateService = new RoommateService(profiles, users, blocks, lifestyles, preferences, connections);
+
+        UUID targetId = UUID.randomUUID();
+        User targetUser = User.builder().id(targetId).fullName("Target User").email("target@secret.vn").phone("0912345678").status(UserStatus.ACTIVE).build();
+        when(users.findById(targetId)).thenReturn(Optional.of(targetUser));
+
+        // Stranger viewing profile: contact is redacted
+        UUID strangerId = UUID.randomUUID();
+        when(connections.findByPairKey(any())).thenReturn(Optional.empty());
+        RoommateService.Suggestion strangerView = roommateService.getPublicProfile(strangerId, targetId);
+        assertNull(strangerView.user().email());
+        assertNull(strangerView.user().phone());
+
+        // Self viewing profile: contact is revealed
+        RoommateService.Suggestion selfView = roommateService.getPublicProfile(targetId, targetId);
+        assertEquals("target@secret.vn", selfView.user().email());
+        assertEquals("0912345678", selfView.user().phone());
+
+        // Accepted connected user: contact is revealed
+        UUID friendId = UUID.randomUUID();
+        RoommateConnection conn = new RoommateConnection();
+        conn.setStatus(RoommateConnection.Status.ACCEPTED);
+        when(connections.findByPairKey(any())).thenReturn(Optional.of(conn));
+        RoommateService.Suggestion friendView = roommateService.getPublicProfile(friendId, targetId);
+        assertEquals("target@secret.vn", friendView.user().email());
+        assertEquals("0912345678", friendView.user().phone());
+    }
+    @Test void cloudinaryRejectsInvalidMimeAndOversizedFiles() {
+        CloudinaryService cloudinaryService = new CloudinaryService(mock(com.cloudinary.Cloudinary.class), mock(ImageStorageService.class));
+        org.springframework.mock.web.MockMultipartFile badMime = new org.springframework.mock.web.MockMultipartFile("file", "test.sh", "text/plain", "echo evil".getBytes());
+        assertThrows(BadRequestException.class, () -> cloudinaryService.validateFile(badMime, false));
+
+        byte[] bigBytes = new byte[(int) CloudinaryService.MAX_IMAGE_SIZE + 1024];
+        org.springframework.mock.web.MockMultipartFile oversized = new org.springframework.mock.web.MockMultipartFile("file", "photo.jpg", "image/jpeg", bigBytes);
+        assertThrows(BadRequestException.class, () -> cloudinaryService.validateFile(oversized, false));
+
+        org.springframework.mock.web.MockMultipartFile good = new org.springframework.mock.web.MockMultipartFile("file", "photo.jpg", "image/jpeg", "image content".getBytes());
+        assertDoesNotThrow(() -> cloudinaryService.validateFile(good, false));
+    }
 }

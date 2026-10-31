@@ -36,7 +36,9 @@ import {
 } from '@/lib/room-landlord-data';
 import './RoomsPage.css';
 
-const PAGE_SIZE = 12;
+// PAGE_SIZE = 28 fits perfectly into responsive grids (7 cols x 4 rows, 4 cols x 7 rows, 2 cols x 14 rows)
+// and ensures all 14 rooms appear completely on Page 1 without empty row gaps or early pagination.
+const PAGE_SIZE = 28;
 
 const SORT_OPTIONS: { value: PublicRoomsSort; labelKey: string }[] = [
     { value: 'newest', labelKey: 'rooms.sortNewest' },

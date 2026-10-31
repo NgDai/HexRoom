@@ -20,13 +20,14 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {AuthController.class, RoomController.class, InspectionController.class}, properties = "app.cors.allowed-origins=http://localhost:5173")
+@WebMvcTest(controllers = {AuthController.class, RoomController.class, InspectionController.class, UploadController.class}, properties = "app.cors.allowed-origins=http://localhost:5173")
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class})
 class HexRoomApiSecurityTest {
     @Autowired MockMvc mvc;
     @MockBean AuthService auth;
     @MockBean RoomService rooms;
     @MockBean InspectionService inspections;
+    @MockBean CloudinaryService cloudinary;
     @MockBean JwtTokenProvider tokens;
     @MockBean CustomUserDetailsService users;
 
@@ -74,5 +75,14 @@ class HexRoomApiSecurityTest {
                 .andExpect(jsonPath("$.data.user.fullName").value("Test"))
                 .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(cookie().httpOnly("hexroom_refresh_token", true));
+    }
+    @Test void uploadEndpointsRequireAuthentication() throws Exception {
+        mvc.perform(multipart("/api/upload/image").file("file", "fake".getBytes())).andExpect(status().isUnauthorized());
+        mvc.perform(multipart("/api/upload/rental-image").file("file", "fake".getBytes())).andExpect(status().isUnauthorized());
+        mvc.perform(multipart("/api/upload/document").file("file", "fake".getBytes())).andExpect(status().isUnauthorized());
+    }
+    @Test void tenantCannotUploadRentalImage() throws Exception {
+        mvc.perform(multipart("/api/upload/rental-image").file("file", "fake".getBytes()).with(user(principal(UserRole.TENANT))))
+                .andExpect(status().isForbidden());
     }
 }
