@@ -17,6 +17,7 @@ RUN mvn dependency:go-offline -B || true
 
 # Copy source code and build production jar (skip tests for faster deployment)
 COPY src ./src
+ENV MAVEN_OPTS="-Xmx1024m"
 RUN mvn clean package -DskipTests -B
 
 # ---- Runtime Stage ----

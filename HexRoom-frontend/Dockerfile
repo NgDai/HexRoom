@@ -20,6 +20,9 @@ COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
+# Increase Node heap memory to 2048MB (prevents JavaScript heap out of memory on low-RAM VPS/EC2)
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
 # Build production bundle
 RUN npm run build
 
