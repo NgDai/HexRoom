@@ -137,3 +137,13 @@ Xem tài liệu chi tiết tại [DEPLOY_GCP.md](./DEPLOY_GCP.md) với hướng
 - **Phương án 1 (Khuyên dùng):** Chạy trọn gói qua Google Compute Engine (VM với Docker Compose).
 - **Phương án 2:** Triển khai độc lập qua Google Cloud Run (Serverless Container).
 
+---
+
+## 🟧 7. Triển khai lên AWS EC2
+
+Xem tài liệu chi tiết tại [DEPLOY_AWS_EC2.md](./DEPLOY_AWS_EC2.md) với hướng dẫn từng bước:
+- Khởi tạo EC2 Ubuntu trên vùng Singapore (`ap-southeast-1`).
+- Mẹo kích hoạt **Swap Memory** để chạy mượt mà ngay cả trên gói AWS Free Tier (1GB RAM).
+- Cố định Elastic IP, mở cổng tường lửa Security Group và chạy Docker Compose.
+
+
