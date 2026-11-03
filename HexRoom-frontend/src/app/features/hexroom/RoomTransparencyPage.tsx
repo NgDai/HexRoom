@@ -1187,8 +1187,34 @@ export function RoomTransparencyPage() {
 
                                     <button
                                         type="button"
+                                        style={{
+                                            padding: '10px 18px',
+                                            borderRadius: 12,
+                                            background: '#ECFDF5',
+                                            color: '#065F46',
+                                            border: '1px solid #A7F3D0',
+                                            fontWeight: 750,
+                                            fontSize: 13,
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                        }}
+                                        onClick={() => {
+                                            setBookingModalOpen(false);
+                                            window.dispatchEvent(new CustomEvent('hexroom:open-survey'));
+                                        }}
+                                    >
+                                        <FileText size={15} /> Khảo sát trải nghiệm 📋
+                                    </button>
+
+                                    <button
+                                        type="button"
                                         className="hx-outline-button"
-                                        onClick={() => setBookingModalOpen(false)}
+                                        onClick={() => {
+                                            setBookingModalOpen(false);
+                                            setTimeout(() => window.dispatchEvent(new CustomEvent('hexroom:open-survey')), 1000);
+                                        }}
                                     >
                                         Hoàn tất & Đóng
                                     </button>

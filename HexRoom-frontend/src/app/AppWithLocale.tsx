@@ -9,6 +9,8 @@ import { LanguageProvider } from './context/LanguageContext';
 
 import { AppRouter } from '@/lib/routers';
 import { hexRoomTheme } from '@/lib/antd-theme';
+import { UserSurveyWidget } from '@/app/components/UserSurveyWidget';
+import { FloatingChatBox } from '@/app/components/FloatingChatBox';
 
 export function AppWithLocale() {
     const { i18n } = useTranslation();
@@ -22,6 +24,8 @@ export function AppWithLocale() {
                         <FavoritesProvider>
                             <ChatBoxProvider>
                                 <AppRouter />
+                                <FloatingChatBox />
+                                <UserSurveyWidget />
                             </ChatBoxProvider>
                         </FavoritesProvider>
                     </AuthProvider>

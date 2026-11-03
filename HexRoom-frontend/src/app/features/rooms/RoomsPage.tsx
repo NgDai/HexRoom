@@ -5,7 +5,7 @@ import {
     MapPin, Camera, Search, SlidersHorizontal, ShieldCheck,
     CheckCircle2, Clock, AlertTriangle, Check, Users, Sparkles,
     ChevronRight, Zap, Phone, X, ChevronDown, ChevronUp, RotateCcw, Filter, Building,
-    LayoutGrid, List, Calendar, Tag, ArrowUpRight
+    LayoutGrid, List, Calendar, Tag, ArrowUpRight, FileText
 } from 'lucide-react';
 import { Header, Footer } from '@/app/features/home/components';
 import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
@@ -1340,14 +1340,29 @@ export function RoomsPage() {
                                                                 <ShieldCheck size={16} /> Có biên bản kiểm định 4 bước đối chiếu tại chỗ
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="hx-hero-submit-btn"
-                                        style={{ width: "100%" }}
-                                        onClick={() => setBookingRoom(null)}
-                                    >
-                                        Đã hiểu & Đóng
-                                    </button>
+                                    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                                        <button
+                                            type="button"
+                                            className="hx-hero-submit-btn"
+                                            style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                            onClick={() => {
+                                                setBookingRoom(null);
+                                                window.dispatchEvent(new CustomEvent('hexroom:open-survey'));
+                                            }}
+                                        >
+                                            <FileText size={15} /> Đã hiểu & Đánh giá trải nghiệm 📋
+                                        </button>
+                                        <button
+                                            type="button"
+                                            style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid #CBD5E1', background: '#FFFFFF', color: '#64748B', fontWeight: 650, cursor: 'pointer' }}
+                                            onClick={() => {
+                                                setBookingRoom(null);
+                                                setTimeout(() => window.dispatchEvent(new CustomEvent('hexroom:open-survey')), 1000);
+                                            }}
+                                        >
+                                            Đóng
+                                        </button>
+                                    </div>
                                 </div>
                             ) : (
                                 <form onSubmit={handleConfirmBooking} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
