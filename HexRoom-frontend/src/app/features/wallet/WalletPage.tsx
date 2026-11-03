@@ -364,7 +364,7 @@ export function WalletPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="hx-page min-h-screen bg-background flex flex-col">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
                 {content}

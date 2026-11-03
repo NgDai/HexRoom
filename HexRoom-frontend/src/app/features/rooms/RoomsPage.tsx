@@ -5,7 +5,7 @@ import {
     MapPin, Camera, Search, SlidersHorizontal, ShieldCheck,
     CheckCircle2, Clock, AlertTriangle, Check, Users, Sparkles,
     ChevronRight, Zap, Phone, X, ChevronDown, ChevronUp, RotateCcw, Filter, Building,
-    LayoutGrid, List, Calendar, Tag
+    LayoutGrid, List, Calendar, Tag, ArrowUpRight
 } from 'lucide-react';
 import { Header, Footer } from '@/app/features/home/components';
 import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
@@ -585,16 +585,17 @@ export function RoomsPage() {
     const hasActiveFilters = activeFilterCount > 0;
 
     return (
-        <div className="rooms-page">
+        <div className="hx-page rooms-page min-h-screen">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
             {/* Hero Banner with Modern Emerald Mesh & Trust Indicators */}
             <div className="rooms-hero">
                 <div className="rooms-hero-badge">
-                    <ShieldCheck size={16} />
+                    <span className="status-dot" />
+                                        <ShieldCheck size={16} />
                     <span>KHÔNG GIAN DÀNH CHO BẠN</span>
                 </div>
-                <h1>{t('rooms.title')}</h1>
+                <h1>{t('rooms.title')}<br /><span>Đúng vị trí, vừa ngân sách.</span></h1>
                 <p>Chọn khu vực, ngân sách và căn phòng phù hợp với bạn.</p>
             </div>
 
@@ -1221,10 +1222,13 @@ export function RoomsPage() {
                                         </div>
 
                                         <div className="room-card-price-row">
-                                            <span className="price-val">
+                                            <div>
+                                                <span className="price-val">
                                                 {Number(room.price).toLocaleString('vi-VN')} đ
                                             </span>
-                                            <span className="price-unit">/tháng</span>
+                                                <span className="price-unit">/tháng</span>
+                                            </div>
+                                            <span className="home-room-arrow"><ArrowUpRight size={17} /></span>
                                         </div>
                                     </div>
                                 </div>
@@ -1301,7 +1305,7 @@ export function RoomsPage() {
                                             {bookingRoom.address || bookingRoom.rental?.location?.address || "Quận Bình Thạnh, TP.HCM"}
                                         </div>
                                         <div style={{ fontSize: 12, color: "#059669", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                                            <ShieldCheck size={14} /> Có biên bản kiểm định 4 bước đối chiếu tại chỗ
+                                                                <ShieldCheck size={16} /> Có biên bản kiểm định 4 bước đối chiếu tại chỗ
                                         </div>
                                     </div>
                                     <button

@@ -70,12 +70,13 @@ export function BlogListPage() {
     }, [search]);
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="hx-page min-h-screen bg-background flex flex-col">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
             <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8">
                     <div>
+                        <span className="home-kicker">CẨM NANG & KINH NGHIỆM</span>
                         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{headerText}</h1>
                         <p className="text-muted-foreground">Khám phá bài viết, kinh nghiệm và tin tức phòng trọ.</p>
                     </div>

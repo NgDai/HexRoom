@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header } from '@/app/features/home/components';
+import { Header, Footer } from '@/app/features/home/components';
 import { useAuth } from '@/app/context/useAuth';
 import { useChatBox } from '@/app/context/useChatBox';
 import { ImageWithFallback } from '@/app/components/ImageWithFallback';
@@ -921,43 +921,47 @@ export function FindRoommatePage() {
     const accepted = matches.filter((m) => m.status === 'ACCEPTED');
 
     return (
-        <div className="hx-roommate-page min-h-screen bg-background">
+        <div className="hx-page hx-roommate-page min-h-screen bg-background flex flex-col">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
-            <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-12">
-                <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="font-heading text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
-                            <Users className="w-8 h-8 text-primary" />
-                            Tìm bạn ở ghép
-                        </h1>
-                        <p className="text-muted-foreground">
-                            Cùng ngân sách. Hợp thói quen. Dễ chia sẻ.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {user ? (
-                            <button
-                                type="button"
-                                onClick={() => setShowEditProfileModal(true)}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] rounded-xl font-semibold shadow-sm transition-all text-sm"
-                            >
-                                <Sparkles className="w-4 h-4" />
-                                {myRoommateProfile ? 'Hồ sơ của tôi' : 'Tạo hồ sơ'}
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => navigate('/login')}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold shadow hover:bg-primary/90 transition-all text-sm"
-                            >
-                                <UserPlus className="w-4 h-4" />
-                                Đăng nhập để đăng hồ sơ
-                            </button>
-                        )}
-                    </div>
+            {/* Unified Hero Banner matching HomePage & RoomsPage */}
+            <div className="rooms-hero">
+                <div className="rooms-hero-badge">
+                    <span className="status-dot" />
+                    <Users size={14} />
+                    <span>CHUNG MÁI NHÀ · HỢP CÁCH SỐNG</span>
                 </div>
+                <h1>
+                    Tìm bạn ở ghép<br />
+                    <span>Cùng thói quen, an tâm gắn bó.</span>
+                </h1>
+                <p>
+                    Chia sẻ không gian, kết nối những người bạn cùng ngân sách và lối sống tương đồng.
+                </p>
+                <div className="flex items-center justify-center gap-3 mt-6">
+                    {user ? (
+                        <button
+                            type="button"
+                            onClick={() => setShowEditProfileModal(true)}
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-950 hover:bg-emerald-50 rounded-xl font-bold shadow-md transition-all text-sm cursor-pointer"
+                        >
+                            <Sparkles className="w-4 h-4 text-emerald-600" />
+                            {myRoommateProfile ? 'Hồ sơ của tôi' : 'Tạo hồ sơ tìm bạn ngay'}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => navigate('/login')}
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-950 hover:bg-emerald-50 rounded-xl font-bold shadow-md transition-all text-sm cursor-pointer"
+                        >
+                            <UserPlus className="w-4 h-4 text-emerald-600" />
+                            Đăng nhập để đăng hồ sơ
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-12 flex-1">
 
                 {message && (
                     <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm flex items-center justify-between">
@@ -1325,10 +1329,13 @@ export function FindRoommatePage() {
                     {/* Suggestions */}
                     <section className="mb-12">
                         <div className="flex items-center justify-between mb-1">
-                            <h2 className="font-heading text-xl font-semibold text-foreground flex items-center gap-2">
-                                <Sparkles className="w-5 h-5 text-accent" />
-                                Gợi ý roommate
-                            </h2>
+                            <div>
+                                <span className="home-kicker">KẾT NỐI NGƯỜI Ở GHÉP</span>
+                                <h2 className="font-heading text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-emerald-600" />
+                                    Gợi ý roommate phù hợp
+                                </h2>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
@@ -2668,6 +2675,7 @@ export function FindRoommatePage() {
                     </div>
                 )}
             </main>
+            <Footer />
         </div>
     );
 }

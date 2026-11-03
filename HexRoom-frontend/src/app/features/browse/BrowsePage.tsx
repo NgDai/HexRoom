@@ -112,11 +112,12 @@ export function BrowsePage() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="hx-page min-h-screen bg-background flex flex-col">
             <Header onLogin={handleLogin} onRegister={handleRegister} />
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1">
                 <div className="mb-6 sm:mb-8">
+                    <span className="home-kicker">DANH SÁCH BẤT ĐỘNG SẢN</span>
                     <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1 sm:mb-2">{t('browse.allRentals')}</h1>
                     <p className="text-muted-foreground">
                         {t('browse.pageSummary', { page: pagination.page, total: pagination.totalPages || 1, count: pagination.total })}

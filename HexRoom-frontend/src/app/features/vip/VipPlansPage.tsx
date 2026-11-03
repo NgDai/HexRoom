@@ -9,7 +9,7 @@ import {
     verifyVipPurchaseRequest,
     type VipPackageItem,
 } from '@/lib/api';
-import { Header } from '@/app/features/home/components';
+import { Header, Footer } from '@/app/features/home/components';
 import { trackEvent } from '@/lib/analytics';
 
 type SupportedRole = 'TENANT' | 'LANDLORD';
@@ -187,52 +187,54 @@ export function VipPlansPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="hx-page min-h-screen bg-background flex flex-col">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-                <section className="rounded-3xl border border-amber-200 bg-linear-to-br from-amber-50 via-background to-orange-50 p-6 sm:p-8">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-700 flex items-center justify-center">
-                            <Crown className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">HexRoom VIP</h1>
-                            <p className="mt-2 text-sm sm:text-base text-muted-foreground">
-                                Mở khóa tính năng cao cấp cho {roleLabel.toLowerCase()}, ưu tiên trải nghiệm và tăng hiệu quả tìm kiếm/đăng tin.
-                            </p>
-                        </div>
-                    </div>
+            {/* Unified Hero Banner */}
+            <div className="rooms-hero">
+                <div className="rooms-hero-badge">
+                    <span className="status-dot" style={{ background: '#f59e0b' }} />
+                    <Crown size={14} className="text-amber-300" />
+                    <span>ĐẶC QUYỀN CAO CẤP</span>
+                </div>
+                <h1>
+                    Gói dịch vụ HexRoom VIP<br />
+                    <span>Tối ưu trải nghiệm, tăng tốc kết nối</span>
+                </h1>
+                <p>
+                    Mở khóa tính năng cao cấp cho {roleLabel.toLowerCase()}, ưu tiên hiển thị và tăng hiệu quả tìm phòng / đăng tin.
+                </p>
+                <div className="mt-5 flex justify-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setActiveRole('TENANT');
+                            trackEvent('vip_role_tab_selected', { source, role: 'TENANT' });
+                        }}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${activeRole === 'TENANT'
+                            ? 'bg-white text-emerald-950 shadow-md font-bold'
+                            : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                            }`}
+                    >
+                        Dành cho Người thuê (Tenant)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setActiveRole('LANDLORD');
+                            trackEvent('vip_role_tab_selected', { source, role: 'LANDLORD' });
+                        }}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${activeRole === 'LANDLORD'
+                            ? 'bg-white text-emerald-950 shadow-md font-bold'
+                            : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                            }`}
+                    >
+                        Dành cho Chủ nhà (Landlord)
+                    </button>
+                </div>
+            </div>
 
-                    <div className="mt-6 flex flex-wrap gap-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setActiveRole('TENANT');
-                                trackEvent('vip_role_tab_selected', { source, role: 'TENANT' });
-                            }}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeRole === 'TENANT'
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-white text-foreground border border-border hover:bg-muted'
-                                }`}
-                        >
-                            Gói cho Tenant
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setActiveRole('LANDLORD');
-                                trackEvent('vip_role_tab_selected', { source, role: 'LANDLORD' });
-                            }}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeRole === 'LANDLORD'
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-white text-foreground border border-border hover:bg-muted'
-                                }`}
-                        >
-                            Gói cho Landlord
-                        </button>
-                    </div>
-                </section>
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 flex-1 w-full">
 
                 {verifyMessage && (
                     <section
@@ -325,6 +327,7 @@ export function VipPlansPage() {
                     </Link>
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }

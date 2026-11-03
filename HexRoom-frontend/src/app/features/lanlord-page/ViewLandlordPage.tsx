@@ -109,7 +109,7 @@ export function ViewLandlordPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="hx-page min-h-screen bg-background flex flex-col">
             <Header onLogin={handleLogin} onRegister={handleRegister} />
             <main className="min-h-[60vh]">{renderContent()}</main>
             <Footer />

@@ -13,6 +13,11 @@
 *.log
 logs/
 
+# Environment files
+.env
+.env.local
+*.env
+
 # Backend (Java / Spring Boot / Maven)
 HexRoom-backend/target/
 HexRoom-backend/.idea/

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Header } from '@/app/features/home/components';
+import { Header, Footer } from '@/app/features/home/components';
 import {
     User, Heart, Sliders, Loader2, Save, Mail, Phone, Check,
     Sparkles, MapPin, Banknote, Crown, X,
@@ -943,7 +943,7 @@ export function ProfilePage() {
     ];
 
     return (
-        <div className="hx-profile-page min-h-screen bg-background">
+        <div className="hx-page hx-profile-page min-h-screen bg-background flex flex-col">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
             <main className="w-full max-w-[1740px] 2xl:max-w-[1820px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                 <div className="flex flex-col xl:flex-row gap-6 items-start">
@@ -2943,6 +2943,7 @@ export function ProfilePage() {
                     }}
                 />
             )}
+            <Footer />
         </div>
     );
 }

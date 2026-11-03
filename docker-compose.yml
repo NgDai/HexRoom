@@ -1,0 +1,94 @@
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database (Local Database Container)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: hexroom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hexroom_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hexroom_secure_db_password}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-hexroom_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hexroom-network
+
+  # ----------------------------------------------------------------------------
+  # Backend API (Spring Boot 3 + Java 21)
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./HexRoom-backend
+      dockerfile: Dockerfile
+    container_name: hexroom-backend
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      # Connect to local postgres container by default, or an external DB if provided in .env
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hexroom_db}?sslmode=disable}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-hexroom_secure_db_password}
+      JWT_SECRET: ${JWT_SECRET:-hexroom_very_secret_jwt_key_that_is_at_least_32_characters_long_1234567890}
+      JWT_EXPIRES_IN_MS: ${JWT_EXPIRES_IN_MS:-900000}
+      REFRESH_TOKEN_EXPIRES_IN_MS: ${REFRESH_TOKEN_EXPIRES_IN_MS:-604800000}
+      REFRESH_TOKEN_COOKIE_NAME: ${REFRESH_TOKEN_COOKIE_NAME:-hexroom_refresh_token}
+      APP_JWT_COOKIE_SECURE: ${APP_JWT_COOKIE_SECURE:-false}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      MEDIA_DIRECTORY: /app/.data/uploads
+      MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:-http://localhost:8080}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - backend_uploads:/app/.data/uploads
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hexroom-network
+
+  # ----------------------------------------------------------------------------
+  # Frontend UI (React + Vite + Tailwind CSS + Nginx)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./HexRoom-frontend
+      dockerfile: Dockerfile
+      args:
+        # If left empty, API requests route relatively through Nginx reverse proxy (/api)
+        VITE_API_URL: ${VITE_API_URL:-}
+    container_name: hexroom-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    networks:
+      - hexroom-network
+
+# ------------------------------------------------------------------------------
+# Persistent Volumes & Network
+# ------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    name: hexroom_postgres_data
+  backend_uploads:
+    name: hexroom_backend_uploads
+
+networks:
+  hexroom-network:
+    name: hexroom-network
+    driver: bridge

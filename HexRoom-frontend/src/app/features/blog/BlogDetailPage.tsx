@@ -34,7 +34,7 @@ export function BlogDetailPage() {
     const publishedAt = post?.publishedAt ? new Date(post.publishedAt).toLocaleDateString('vi-VN') : '';
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="hx-page min-h-screen bg-background flex flex-col">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
             <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">

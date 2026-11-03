@@ -10,7 +10,7 @@ import {
     NearbyPlaceholder,
 } from './components';
 import { useSearch, useAuthLevel } from './hooks';
-import { Header } from '@/app/features/home/components';
+import { Header, Footer } from '@/app/features/home/components';
 
 export function SearchPage() {
     const navigate = useNavigate();
@@ -39,40 +39,46 @@ export function SearchPage() {
     const showImageTab = authVerified ? (isTenant || isVip) : false;
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="hx-page min-h-screen bg-background flex flex-col">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
 
-            {/* Hero section with search */}
-            <section className="relative bg-gradient-to-br from-primary/10 via-background to-accent/5 py-6 sm:py-10 lg:py-14">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center mb-4 sm:mb-6">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-heading mb-2">
-                        {isLoggedIn ? t('search.pageTitle') : t('search.pageTitleGuest')}
-                    </h1>
-                    <p className="text-muted-foreground text-base sm:text-lg">
-                        {isLoggedIn ? t('search.aiSubtitle') : t('search.guestSubtitle')}
-                        {showImageTab && isVip && ` • ${t('search.subtitleImageSearchVip')}`}
-                        {showImageTab && !isVip && ` • ${t('search.subtitleImageSearchLocked')}`}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                        {isLoggedIn && searchMode && (
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                                {searchMode === 'ai_embedding' && '🤖 AI Embedding Search'}
-                                {searchMode === 'smart_keyword' && '🔍 Smart Keyword Search'}
-                                {searchMode === 'clip_visual' && '🖼️ CLIP Visual Search'}
-                                {searchMode === 'clip_multimodal' && '🧠 CLIP Multimodal Search (Image + Text)'}
-                                {searchMode === 'basic' && '📝 Basic Search'}
-                                {searchMode === 'advanced' && '⚡ Advanced Search'}
-                                {searchMode === 'nearby' && '📍 Nearby Search'}
-                            </div>
-                        )}
-                        {translatedQuery && (
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                                🌐 Searching as: <span className="font-semibold">"{translatedQuery}"</span>
-                            </div>
-                        )}
-                    </div>
+            {/* Unified Hero section */}
+            <div className="rooms-hero">
+                <div className="rooms-hero-badge">
+                    <span className="status-dot" />
+                    <span>TÌM KIẾM THÔNG MINH</span>
                 </div>
+                <h1>
+                    {isLoggedIn ? t('search.pageTitle') : t('search.pageTitleGuest')}<br />
+                    <span>Khám phá mọi căn phòng phù hợp</span>
+                </h1>
+                <p>
+                    {isLoggedIn ? t('search.aiSubtitle') : t('search.guestSubtitle')}
+                    {showImageTab && isVip && ` • ${t('search.subtitleImageSearchVip')}`}
+                    {showImageTab && !isVip && ` • ${t('search.subtitleImageSearchLocked')}`}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    {isLoggedIn && searchMode && (
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-emerald-100 border border-white/20">
+                            {searchMode === 'ai_embedding' && '🤖 AI Embedding Search'}
+                            {searchMode === 'smart_keyword' && '🔍 Smart Keyword Search'}
+                            {searchMode === 'clip_visual' && '🖼️ CLIP Visual Search'}
+                            {searchMode === 'clip_multimodal' && '🧠 CLIP Multimodal Search (Image + Text)'}
+                            {searchMode === 'basic' && '📝 Basic Search'}
+                            {searchMode === 'advanced' && '⚡ Advanced Search'}
+                            {searchMode === 'nearby' && '📍 Nearby Search'}
+                        </div>
+                    )}
+                    {translatedQuery && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-emerald-100 border border-white/20">
+                            🌐 Searching as: <span className="font-semibold">"{translatedQuery}"</span>
+                        </div>
+                    )}
+                </div>
+            </div>
 
+            {/* Search tabs & content */}
+            <section className="py-6 sm:py-8">
                 <div className="max-w-4xl mx-auto px-4 sm:px-6">
                     <SearchTabs showImageTab={showImageTab}>
                         {(activeTab) => (
@@ -132,6 +138,7 @@ export function SearchPage() {
                     onReset={resetSearch}
                 />
             </main>
+            <Footer />
         </div>
     );
 }
