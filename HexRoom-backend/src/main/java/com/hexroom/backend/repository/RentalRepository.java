@@ -19,7 +19,7 @@ public interface RentalRepository extends JpaRepository<Rental, UUID>, JpaSpecif
 
     boolean existsByTitle(String title);
 
-    java.util.Optional<Rental> findByTitle(String title);
+    java.util.List<Rental> findByTitle(String title);
 
     Page<Rental> findByStatus(RentalStatus status, Pageable pageable);
 }
