@@ -29,7 +29,7 @@ import {
 } from '@/lib/constants/room-filters';
 import { mapPublicRoomToFavorite } from '@/lib/utils/mapPublicRoomToFavorite';
 import { useAuth } from '@/app/context/useAuth';
-import { saveViewingAppointment } from '@/lib/room-viewing-history';
+import { saveViewingAppointment, checkRoomBookingAvailability } from '@/lib/room-viewing-history';
 import {
     getRoomLandlordAndInspection,
     getRoomCostHighlights
@@ -212,7 +212,8 @@ export function RoomsPage() {
                 if (!active) return;
                 const rawItems = res.data || [];
                 setAllAvailableRooms(rawItems);
-                let items = [...rawItems];
+                // Ẩn phòng đã có người thuê (RENTED) khỏi danh sách công khai
+                let items = rawItems.filter((r) => r.status === 'AVAILABLE' || r.status === 'available' || !r.status);
 
                 if (inspectionFromUrl === 'verified') {
                     items = items.filter((r) => getRoomLandlordAndInspection(r).inspection.isInspected);
@@ -433,6 +434,18 @@ export function RoomsPage() {
     const handleConfirmBooking = (e: React.FormEvent) => {
         e.preventDefault();
         if (bookingRoom) {
+            const availability = checkRoomBookingAvailability(bookingRoom.id, bookingRoom.roomName || bookingRoom.title, bookingRoom.status);
+            if (availability.isRented) {
+                alert('Phòng này đã có người thuê và đã hoàn tất hợp đồng. Tạm thời phòng đã khóa.');
+                setBookingRoom(null);
+                return;
+            }
+            if (availability.isBookedForViewing) {
+                alert(availability.message || 'Phòng này hiện đã có khách đặt lịch xem trước. Hệ thống tạm thời không nhận thêm lịch xem mới.');
+                setBookingRoom(null);
+                return;
+            }
+
             const apptDate = bookingData.date === 'today'
                 ? new Date().toISOString().split('T')[0]
                 : bookingData.date === 'tomorrow'
@@ -1171,10 +1184,29 @@ export function RoomsPage() {
                                             }}
                                         />
 
-                                        {/* Status pill top-left: • Còn trống */}
-                                        <div className="room-badge-status-pill">
-                                            <span className="status-dot" /> Còn trống
-                                        </div>
+                                        {/* Status pill top-left: • Còn trống / • Đã có lịch xem / • Đã thuê */}
+                                        {(() => {
+                                            const bookingCheck = checkRoomBookingAvailability(room.id, name, room.status);
+                                            if (bookingCheck.isRented) {
+                                                return (
+                                                    <div className="room-badge-status-pill" style={{ background: '#FEE2E2', color: '#991B1B', borderColor: '#FECACA' }}>
+                                                        <span className="status-dot" style={{ background: '#EF4444' }} /> Đã thuê
+                                                    </div>
+                                                );
+                                            }
+                                            if (bookingCheck.isBookedForViewing) {
+                                                return (
+                                                    <div className="room-badge-status-pill" style={{ background: '#FEF3C7', color: '#92400E', borderColor: '#FDE68A' }}>
+                                                        <span className="status-dot" style={{ background: '#F59E0B' }} /> Đã có lịch xem
+                                                    </div>
+                                                );
+                                            }
+                                            return (
+                                                <div className="room-badge-status-pill">
+                                                    <span className="status-dot" /> Còn trống
+                                                </div>
+                                            );
+                                        })()}
 
                                         {/* Băng rôn chéo đánh dấu phòng đã kiểm định */}
                                         {isInspected && (

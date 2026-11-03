@@ -21,6 +21,8 @@ public interface RoomRepository extends JpaRepository<Room, UUID>, JpaSpecificat
 
     Page<Room> findByStatus(RoomStatus status, Pageable pageable);
 
+    boolean existsByRoomName(String roomName);
+
     @Modifying
     @Query("UPDATE Room r SET r.searchCount = r.searchCount + 1 WHERE r.id = :roomId")
     void incrementSearchCount(@Param("roomId") UUID roomId);

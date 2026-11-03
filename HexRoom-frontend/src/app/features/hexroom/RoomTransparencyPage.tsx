@@ -4,7 +4,7 @@ import {
     ArrowLeft, Camera, ChevronLeft, ChevronRight, MapPin, House, ClipboardCheck, Calendar, CheckCircle2,
     ShieldCheck, Clock, User, Phone, Mail, FileText, ArrowRight,
     X, MessageCircle, AlertTriangle, Sparkles, Send, Check, Maximize,
-    LayoutGrid, Layers, Square
+    LayoutGrid, Layers, Square, Lock
 } from 'lucide-react';
 import { Header, Footer } from '../home/components';
 import { RoomFavoriteButton } from '@/app/components/RoomFavoriteButton';
@@ -14,7 +14,7 @@ import { request, money, inspectionCategories, inspectionStatuses, type ApiRoom,
 import { getRoomLandlordAndInspection } from '@/lib/room-landlord-data';
 import { createRentalRequest, type RentalRequest } from '@/app/features/rentalManagement/requests/requests-storage';
 import type { Booking } from '@/app/features/booking-history/types';
-import { saveViewingAppointment } from '@/lib/room-viewing-history';
+import { saveViewingAppointment, checkRoomBookingAvailability } from '@/lib/room-viewing-history';
 
 const costLabels: [keyof RoomCosts, string][] = [
     ['deposit', 'Tiền cọc'],
@@ -147,7 +147,18 @@ export function RoomTransparencyPage() {
     const unknown = fixedFees.filter(key => costs?.[key] == null).length + (costs?.electricityPerKwh == null ? 1 : 0) + (costs?.waterPerM3 == null ? 1 : 0);
     const estimate = Number(room?.price ?? 0) + fixedFees.reduce((sum, key) => sum + Number(costs?.[key] ?? 0), 0) + electricity * Number(costs?.electricityPerKwh ?? 0) + water * Number(costs?.waterPerM3 ?? 0);
 
+    // Kiểm tra trạng thái phòng: Đã thuê hoặc Đã có lịch hẹn xem
+    const bookingStatus = checkRoomBookingAvailability(room?.id, room?.roomName || room?.rentalTitle, room?.status);
+
     const openBookingModal = (type: 'VIEWING' | 'RESERVE') => {
+        if (bookingStatus.isRented) {
+            alert('Phòng này đã có người thuê và đã hoàn tất hợp đồng. Tạm thời phòng đã khóa.');
+            return;
+        }
+        if (type === 'VIEWING' && bookingStatus.isBookedForViewing) {
+            alert(bookingStatus.message || 'Phòng này hiện đã có khách đặt lịch xem trước. Hệ thống tạm thời không nhận thêm lịch xem mới.');
+            return;
+        }
         setBookingType(type);
         setBookingStep(1);
         setBookingModalOpen(true);
@@ -272,7 +283,22 @@ export function RoomTransparencyPage() {
                     <>
                         <div className="hx-section-heading">
                             <div>
-                                <h1 style={{ fontSize: 34, fontWeight: 700, marginTop: 24 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 20 }}>
+                                    {bookingStatus.isRented ? (
+                                        <span style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <Lock size={13} /> Đã có người thuê (Đã khóa)
+                                        </span>
+                                    ) : bookingStatus.isBookedForViewing ? (
+                                        <span style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <Clock size={13} /> Đã có người đặt lịch xem
+                                        </span>
+                                    ) : (
+                                        <span style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981' }} /> Còn trống
+                                        </span>
+                                    )}
+                                </div>
+                                <h1 style={{ fontSize: 34, fontWeight: 700, marginTop: 8 }}>
                                     {room.roomName || room.rentalTitle}
                                 </h1>
                                 <p>
@@ -652,10 +678,31 @@ export function RoomTransparencyPage() {
                                     <p>{costs?.feeNotes || 'Không có phụ phí phát sinh nào ngoài biểu phí trên.'}</p>
 
                                     {/* ── FLOW ĐẶT PHÒNG / GIỮ CHỖ CHUẨN HEXROOM ── */}
+                                    {bookingStatus.isRented && (
+                                        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 10, color: '#991B1B' }}>
+                                            <Lock size={20} className="shrink-0 text-red-600" style={{ marginTop: 2 }} />
+                                            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                                                <strong style={{ display: 'block', fontSize: 13.5, color: '#7F1D1D' }}>Phòng này đã có người thuê (Đã khóa)</strong>
+                                                Hợp đồng thuê đã hoàn tất. Tạm thời phòng đã khóa và không nhận thêm lịch hẹn xem hoặc giữ chỗ.
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!bookingStatus.isRented && bookingStatus.isBookedForViewing && (
+                                        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 10, color: '#92400E' }}>
+                                            <Clock size={20} className="shrink-0 text-amber-600" style={{ marginTop: 2 }} />
+                                            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                                                <strong style={{ display: 'block', fontSize: 13.5, color: '#78350F' }}>Phòng đang có lịch hẹn đón khách xem</strong>
+                                                {bookingStatus.message || 'Phòng đã có người hẹn xem trước. Tạm ngừng nhận thêm lịch xem mới để ưu tiên khách trước.'}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="hx-booking-cta-panel">
                                         <button
                                             type="button"
                                             className="hx-button"
+                                            disabled={bookingStatus.isRented || bookingStatus.isBookedForViewing}
                                             style={{
                                                 width: '100%',
                                                 padding: '13px 18px',
@@ -665,16 +712,26 @@ export function RoomTransparencyPage() {
                                                 justifyContent: 'center',
                                                 alignItems: 'center',
                                                 gap: 8,
-                                                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                                                boxShadow: (bookingStatus.isRented || bookingStatus.isBookedForViewing) ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.4)',
+                                                opacity: (bookingStatus.isRented || bookingStatus.isBookedForViewing) ? 0.7 : 1,
+                                                cursor: (bookingStatus.isRented || bookingStatus.isBookedForViewing) ? 'not-allowed' : 'pointer',
+                                                background: bookingStatus.isRented ? '#94A3B8' : bookingStatus.isBookedForViewing ? '#D97706' : '#10B981'
                                             }}
                                             onClick={() => openBookingModal('VIEWING')}
                                         >
-                                            <Calendar size={18} /> Đặt lịch hẹn xem phòng trực tiếp
+                                            {bookingStatus.isRented ? (
+                                                <><Lock size={18} /> Đã có người thuê (Đã khóa)</>
+                                            ) : bookingStatus.isBookedForViewing ? (
+                                                <><Clock size={18} /> Đã có người đặt lịch xem</>
+                                            ) : (
+                                                <><Calendar size={18} /> Đặt lịch hẹn xem phòng trực tiếp</>
+                                            )}
                                         </button>
 
                                         <button
                                             type="button"
                                             className="hx-outline-button"
+                                            disabled={bookingStatus.isRented}
                                             style={{
                                                 width: '100%',
                                                 padding: '12px 18px',
@@ -684,13 +741,18 @@ export function RoomTransparencyPage() {
                                                 justifyContent: 'center',
                                                 alignItems: 'center',
                                                 gap: 8,
-                                                borderColor: '#10B981',
-                                                color: '#059669',
-                                                background: '#ECFDF5'
+                                                borderColor: bookingStatus.isRented ? '#CBD5E1' : '#10B981',
+                                                color: bookingStatus.isRented ? '#94A3B8' : '#059669',
+                                                background: bookingStatus.isRented ? '#F1F5F9' : '#ECFDF5',
+                                                cursor: bookingStatus.isRented ? 'not-allowed' : 'pointer'
                                             }}
                                             onClick={() => openBookingModal('RESERVE')}
                                         >
-                                            <CheckCircle2 size={18} color="#10B981" /> Đăng ký giữ chỗ & Hợp đồng mẫu
+                                            {bookingStatus.isRented ? (
+                                                <><Lock size={18} color="#94A3B8" /> Đã có người thuê</>
+                                            ) : (
+                                                <><CheckCircle2 size={18} color="#10B981" /> Đăng ký giữ chỗ & Hợp đồng mẫu</>
+                                            )}
                                         </button>
 
                                         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>

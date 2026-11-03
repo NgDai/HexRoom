@@ -188,6 +188,44 @@ export const INITIAL_VIEWING_HISTORY: RoomViewingAppointment[] = [
         hostOrStaff: 'Chủ nhà trực tiếp (Cô Lan)',
         createdAt: '2026-10-11T16:20:00Z',
     },
+    {
+        id: 'view-009',
+        tenantName: 'Nguyễn Văn Tuấn',
+        tenantPhone: '0918 889 900',
+        tenantEmail: 'tuan.nguyen@gmail.com',
+        tenantAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80',
+        roomId: 'room-nt-01',
+        roomName: 'Căn hộ Studio Ban Công Thoáng Sáng — Gần ĐH Ngoại Thương & HUTECH',
+        rentalId: 'rental-nt-01',
+        rentalTitle: 'Tòa nhà HexRoom Residence Nguyễn Xí Bình Thạnh',
+        rentalAddress: '188/15 Nguyễn Xí, Phường 26, Quận Bình Thạnh, TP.HCM',
+        appointmentDate: '2026-11-04',
+        appointmentTimeSlot: '14:00 - 16:30',
+        status: 'CONFIRMED',
+        outcome: 'PENDING',
+        feedbackNote: 'Khách hẹn xem phòng trực tiếp sau giờ làm. Đã gọi điện xác nhận giờ hẹn.',
+        hostOrStaff: 'Chủ nhà trực tiếp (Hoàng Thanh Huy)',
+        createdAt: '2026-11-02T10:00:00Z',
+    },
+    {
+        id: 'view-010',
+        tenantName: 'Lê Thuỳ Linh',
+        tenantPhone: '0977 445 566',
+        tenantEmail: 'thuylinh.le@gmail.com',
+        tenantAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
+        roomId: 'room-sb-02',
+        roomName: 'Studio Sang Trọng Liền Kề Sân Bay — Full Đồ Điện Máy Cao Cấp',
+        rentalId: 'rental-sb-02',
+        rentalTitle: 'HexApartment Sân Bay Tân Sơn Nhất',
+        rentalAddress: '36 Bạch Đằng, Phường 2, Quận Tân Bình, TP.HCM',
+        appointmentDate: '2026-11-05',
+        appointmentTimeSlot: '09:00 - 11:30',
+        status: 'CONFIRMED',
+        outcome: 'PENDING',
+        feedbackNote: 'Khách làm tiếp viên hàng không, hẹn xem phòng buổi sáng.',
+        hostOrStaff: 'Quản lý tòa nhà (Hải BĐS)',
+        createdAt: '2026-11-02T14:30:00Z',
+    },
 ];
 
 export function getViewingHistory(): RoomViewingAppointment[] {
@@ -288,3 +326,77 @@ export function getViewingStats(list?: RoomViewingAppointment[]) {
         avgRating,
     };
 }
+
+export interface RoomBookingStatus {
+    isBookedForViewing: boolean;
+    isRented: boolean;
+    activeAppointment?: RoomViewingAppointment;
+    message?: string;
+}
+
+/**
+ * Kiểm tra trạng thái khả dụng để đặt lịch xem phòng:
+ * 1. Nếu phòng đã có người thuê (status RENTED / UNAVAILABLE) -> Khóa lại
+ * 2. Nếu phòng đã có người đặt lịch hẹn xem trước (status CONFIRMED hoặc PENDING) -> Không cho đặt thêm
+ */
+export function checkRoomBookingAvailability(
+    roomId?: string,
+    roomName?: string,
+    roomStatus?: string
+): RoomBookingStatus {
+    const isRented = roomStatus === 'RENTED' || roomStatus === 'rented' || roomStatus === 'UNAVAILABLE';
+    if (isRented) {
+        return {
+            isBookedForViewing: false,
+            isRented: true,
+            message: 'Phòng này đã có người thuê và đã hoàn tất hợp đồng. Tạm thời phòng đã khóa và không thể đặt lịch xem.'
+        };
+    }
+
+    if (!roomId && !roomName) {
+        return { isBookedForViewing: false, isRented: false };
+    }
+
+    const viewingList = getViewingHistory();
+    const found = viewingList.find((app) => {
+        const matchesId = roomId && app.roomId && (app.roomId === roomId || String(app.roomId).toLowerCase() === String(roomId).toLowerCase());
+        const matchesName = roomName && app.roomName && app.roomName.toLowerCase().trim() === roomName.toLowerCase().trim();
+        const isActive = app.status === 'CONFIRMED' || app.status === 'PENDING';
+        return (matchesId || matchesName) && isActive;
+    });
+
+    if (found) {
+        return {
+            isBookedForViewing: true,
+            isRented: false,
+            activeAppointment: found,
+            message: `Phòng này hiện đã có khách đặt lịch hẹn xem trước (${found.appointmentDate} lúc ${found.appointmentTimeSlot}). Để đảm bảo quyền ưu tiên cho khách trước, hệ thống tạm thời không nhận thêm lịch xem mới.`
+        };
+    }
+
+    // Kiểm tra thêm các lịch đặt lưu ở local bookings
+    try {
+        const localRaw = localStorage.getItem('hexroom_local_bookings');
+        if (localRaw) {
+            const localList = JSON.parse(localRaw);
+            const localFound = localList.find((b: any) => {
+                const matchesId = roomId && b.roomId && (b.roomId === roomId || String(b.roomId).toLowerCase() === String(roomId).toLowerCase());
+                const matchesName = roomName && b.roomName && b.roomName.toLowerCase().trim() === roomName.toLowerCase().trim();
+                const isActive = b.status === 'upcoming' || b.status === 'CONFIRMED' || b.status === 'PENDING';
+                return (matchesId || matchesName) && isActive;
+            });
+            if (localFound) {
+                return {
+                    isBookedForViewing: true,
+                    isRented: false,
+                    message: `Phòng này đã có khách đặt lịch xem trước vào ${localFound.appointmentDate || localFound.startDate} (${localFound.appointmentTime || ''}). Tạm thời không nhận thêm lịch xem mới.`
+                };
+            }
+        }
+    } catch {
+        // ignore
+    }
+
+    return { isBookedForViewing: false, isRented: false };
+}
+
