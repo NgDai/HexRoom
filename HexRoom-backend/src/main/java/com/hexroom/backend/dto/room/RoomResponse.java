@@ -45,6 +45,12 @@ public class RoomResponse {
     private String district;
     private String city;
 
+    // Landlord / Owner details
+    private UUID ownerId;
+    private String ownerEmail;
+    private String landlordName;
+    private String landlordPhone;
+
     @Builder.Default
     private List<String> images = new ArrayList<>();
 
@@ -83,6 +89,12 @@ public class RoomResponse {
             builder.rentalId(room.getRental().getId());
             builder.rentalTitle(room.getRental().getTitle());
             builder.rentalStatus(room.getRental().getStatus());
+            if (room.getRental().getOwner() != null) {
+                builder.ownerId(room.getRental().getOwner().getId());
+                builder.ownerEmail(room.getRental().getOwner().getEmail());
+                builder.landlordName(room.getRental().getOwner().getFullName());
+                builder.landlordPhone(room.getRental().getOwner().getPhone());
+            }
             if (room.getRental().getLocation() != null) {
                 builder.address(room.getRental().getLocation().getAddress());
                 builder.district(room.getRental().getLocation().getDistrict());

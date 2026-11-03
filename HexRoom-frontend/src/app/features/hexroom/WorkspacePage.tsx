@@ -222,6 +222,7 @@ export function WorkspacePage() {
     const [version, setVersion] = useState(0);
 
     // Filter and search state
+    const [adminShowAll, setAdminShowAll] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'RENTED' | 'PENDING' | 'MAINTENANCE'>('ALL');
     const [inspectionFilter, setInspectionFilter] = useState<'ALL' | 'VERIFIED' | 'UNVERIFIED'>('ALL');
@@ -282,16 +283,21 @@ export function WorkspacePage() {
         if (!authorized) return;
         let active = true;
 
-        // Merge local custom rooms with mock/api data
+        // Load custom rooms belonging strictly to this user
         let localCustomRooms: ApiRoom[] = [];
         try {
-            localCustomRooms = JSON.parse(localStorage.getItem('hexroom_custom_rooms') || '[]');
+            const raw = localStorage.getItem('hexroom_custom_rooms') || '[]';
+            const allCustom: ApiRoom[] = JSON.parse(raw);
+            localCustomRooms = allCustom.filter(r => 
+                adminShowAll || !r.userId || r.userId === user?.id || (user?.email && r.ownerEmail?.toLowerCase() === user.email.toLowerCase())
+            );
         } catch {
             localCustomRooms = [];
         }
 
+        const manageUrl = `/rooms/manage?page=${page}${adminShowAll ? '&all=true' : ''}`;
         Promise.all([
-            request<Page<ApiRoom>>(`/rooms/manage?page=${page}`).catch(() => ({ items: [] as ApiRoom[], totalPages: 1 })),
+            request<Page<ApiRoom>>(manageUrl).catch(() => ({ items: [] as ApiRoom[], totalPages: 1 })),
             owner ? request<Page<Rental>>('/rentals/mine').catch(() => null) : Promise.resolve(null)
         ])
             .then(([data, rentalData]) => {
@@ -318,7 +324,7 @@ export function WorkspacePage() {
             })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
-    }, [authorized, owner, page, version]);
+    }, [authorized, owner, page, version, adminShowAll, user?.id, user?.email]);
 
     // Populate form when editing a room
     useEffect(() => {
@@ -440,7 +446,12 @@ export function WorkspacePage() {
             amenities: formAmenities.length ? formAmenities : ['Máy lạnh', 'Tủ lạnh', 'Khóa vân tay', 'Wifi tốc độ cao'],
             costs,
             availabilityConfirmedAt: selected?.availabilityConfirmedAt || new Date().toISOString(),
-            createdAt: selected?.createdAt || new Date().toISOString()
+            createdAt: selected?.createdAt || new Date().toISOString(),
+            ownerId: user?.id,
+            ownerEmail: user?.email,
+            landlordName: user?.fullName || 'Chủ trọ',
+            landlordPhone: user?.phone || '',
+            userId: user?.id
         };
 
         // Save to state and localStorage
@@ -600,6 +611,18 @@ export function WorkspacePage() {
     // Filtered rooms
     const filteredRooms = useMemo(() => {
         return rooms.filter(r => {
+            // Hiển thị phòng của ai thì chỉ trên tài khoản người ấy
+            if (!adminShowAll) {
+                if (r.ownerId && user?.id && r.ownerId !== user.id) {
+                    return false;
+                }
+                if (r.userId && user?.id && r.userId !== user.id) {
+                    return false;
+                }
+                if (r.ownerEmail && user?.email && r.ownerEmail.toLowerCase() !== user.email.toLowerCase()) {
+                    return false;
+                }
+            }
             if (searchKeyword.trim()) {
                 const kw = searchKeyword.toLowerCase();
                 const matchName = (r.roomName || '').toLowerCase().includes(kw);
@@ -1012,8 +1035,30 @@ export function WorkspacePage() {
                                             </p>
                                         </div>
 
-                                        {/* View mode toggle */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F1F5F9', padding: 4, borderRadius: 12 }}>
+                                        {/* View mode toggle & Admin filter */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                            {user?.role === 'ADMIN' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAdminShowAll(v => !v)}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 6,
+                                                        padding: '6px 14px',
+                                                        borderRadius: 8,
+                                                        border: adminShowAll ? '1px solid #93C5FD' : '1px solid #CBD5E1',
+                                                        fontSize: 12,
+                                                        fontWeight: 700,
+                                                        background: adminShowAll ? '#EFF6FF' : '#FFFFFF',
+                                                        color: adminShowAll ? '#1D4ED8' : '#475569',
+                                                        cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    {adminShowAll ? '🌐 Đang xem: Toàn sàn' : '👤 Đang xem: Chỉ phòng của tôi'}
+                                                </button>
+                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F1F5F9', padding: 4, borderRadius: 12 }}>
                                             <button
                                                 type="button"
                                                 onClick={() => setViewMode('table')}
@@ -1056,6 +1101,7 @@ export function WorkspacePage() {
                                             </button>
                                         </div>
                                     </div>
+                                </div>
 
                                     {/* Search & Filter Controls */}
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, background: '#F8FAFC', padding: 14, borderRadius: 14, border: '1px solid #E2E8F0' }}>

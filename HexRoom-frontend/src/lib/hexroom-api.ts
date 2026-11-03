@@ -10,6 +10,7 @@ export interface ApiRoom {
     price: number; sizeM2: number | null; maxPeople: number; roomType: string; status: string;
     address: string; district: string; city: string; images: string[]; amenities: string[];
     costs: RoomCosts | null; availabilityConfirmedAt: string | null; createdAt: string;
+    ownerId?: string | null; ownerEmail?: string | null; landlordName?: string | null; landlordPhone?: string | null; userId?: string | null;
 }
 export interface Page<T> { items: T[]; page: number; limit: number; total: number; totalPages: number; }
 export interface Inspection {

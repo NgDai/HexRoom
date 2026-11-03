@@ -84,8 +84,11 @@ public class RoomController {
     @GetMapping("/manage")
     @PreAuthorize("hasAnyRole('LANDLORD', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<ApiResponse<PagedResponse<RoomResponse>>> managed(
-            @AuthenticationPrincipal UserPrincipal user, @RequestParam(defaultValue = "1") int page) {
-        return ResponseEntity.ok(ApiResponse.success(roomService.managedRooms(user.getId(), user.getRole() != UserRole.LANDLORD, page)));
+            @AuthenticationPrincipal UserPrincipal user,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(required = false, defaultValue = "false") boolean all) {
+        boolean showAll = all && (user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.MODERATOR);
+        return ResponseEntity.ok(ApiResponse.success(roomService.managedRooms(user.getId(), showAll, page)));
     }
 
     @PostMapping("/{id}/confirm-availability")

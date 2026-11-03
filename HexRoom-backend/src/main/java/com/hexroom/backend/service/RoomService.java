@@ -240,8 +240,8 @@ public class RoomService {
     }
 
     @Transactional(readOnly = true)
-    public PagedResponse<RoomResponse> managedRooms(UUID userId, boolean staff, int page) {
-        Specification<Room> spec = (root, query, cb) -> staff ? cb.conjunction()
+    public PagedResponse<RoomResponse> managedRooms(UUID userId, boolean showAll, int page) {
+        Specification<Room> spec = (root, query, cb) -> showAll ? cb.conjunction()
                 : cb.equal(root.get("rental").get("owner").get("id"), userId);
         return PagedResponse.fromPage(roomRepository.findAll(spec,
                 PageRequest.of(Math.max(0, page - 1), 20, Sort.by("createdAt").descending())).map(RoomResponse::fromEntity));

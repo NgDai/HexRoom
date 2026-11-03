@@ -31,6 +31,13 @@ public class InspectionService {
     public InspectionResponse record(UUID roomId, UUID inspectorId, InspectionRequest request) {
         Room room = rooms.findById(roomId).orElseThrow(() -> new ResourceNotFoundException("Room", "id", roomId));
         if (room.getRental().getOwner().getId().equals(inspectorId)) throw new ForbiddenException("Không tự kiểm tra phòng của mình");
+        boolean alreadyChecked = inspections.findByRoomIdOrderByRecordedAtDesc(roomId).stream()
+                .anyMatch(i -> i.getCategory() == request.category()
+                        && i.getResult() == Result.CHECKED
+                        && (i.getValidUntil() == null || !i.getValidUntil().isBefore(java.time.LocalDate.now())));
+        if (alreadyChecked) {
+            throw new BadRequestException("Hạng mục này của căn phòng đã được kiểm định và cấp chứng nhận. Biên bản đã được khóa niêm phong và không thể ghi lại.");
+        }
         if (request.validUntil() != null && request.validUntil().isBefore(request.inspectedOn()))
             throw new BadRequestException("Ngày hết hiệu lực phải sau ngày kiểm tra");
         if ((request.result() == Result.CHECKED || request.result() == Result.DISCREPANCY_CONFIRMED)
