@@ -77,18 +77,54 @@ public class DataSeeder implements CommandLineRunner {
                 "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400"
         );
 
-        userRepository.findByEmail("admin@hexroom.vn")
-                .orElseGet(() -> userRepository.save(User.builder()
-                        .email("admin@hexroom.vn")
-                        .fullName("Trịnh Hoàng Minh (Quản trị Admin)")
-                        .passwordHash(passwordEncoder.encode("123456"))
-                        .phone("0988776655")
-                        .avatarUrl("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400")
-                        .role(UserRole.ADMIN)
-                        .status(UserStatus.ACTIVE)
-                        .gender("Nam")
-                        .isVip(true)
-                        .build()));
+        // Seed & Ensure Admin Accounts
+        User adminHexroom = userRepository.findByEmail("admin@hexroom.vn").orElse(null);
+        if (adminHexroom == null) {
+            adminHexroom = User.builder()
+                    .email("admin@hexroom.vn")
+                    .fullName("Trịnh Hoàng Minh (Quản trị Admin)")
+                    .passwordHash(passwordEncoder.encode("123456"))
+                    .phone("0988776655")
+                    .avatarUrl("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400")
+                    .role(UserRole.ADMIN)
+                    .status(UserStatus.ACTIVE)
+                    .gender("Nam")
+                    .isVip(true)
+                    .emailVerified(true)
+                    .phoneVerified(true)
+                    .isIdentityVerified(true)
+                    .build();
+        } else {
+            adminHexroom.setRole(UserRole.ADMIN);
+            adminHexroom.setStatus(UserStatus.ACTIVE);
+            adminHexroom.setPasswordHash(passwordEncoder.encode("123456"));
+            adminHexroom.setIsVip(true);
+        }
+        userRepository.save(adminHexroom);
+
+        User adminGmail = userRepository.findByEmail("admin@gmail.com").orElse(null);
+        if (adminGmail == null) {
+            adminGmail = User.builder()
+                    .email("admin@gmail.com")
+                    .fullName("Hệ Thống Quản Trị (Admin)")
+                    .passwordHash(passwordEncoder.encode("123456"))
+                    .phone("0988776655")
+                    .avatarUrl("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400")
+                    .role(UserRole.ADMIN)
+                    .status(UserStatus.ACTIVE)
+                    .gender("Nam")
+                    .isVip(true)
+                    .emailVerified(true)
+                    .phoneVerified(true)
+                    .isIdentityVerified(true)
+                    .build();
+        } else {
+            adminGmail.setRole(UserRole.ADMIN);
+            adminGmail.setStatus(UserStatus.ACTIVE);
+            adminGmail.setPasswordHash(passwordEncoder.encode("123456"));
+            adminGmail.setIsVip(true);
+        }
+        userRepository.save(adminGmail);
 
         userRepository.findByEmail("inspector@hexroom.vn")
                 .orElseGet(() -> userRepository.save(User.builder()
