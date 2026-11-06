@@ -849,7 +849,7 @@ export function RoomTransparencyPage() {
             {/* ── HEXROOM COMPREHENSIVE BOOKING & SMART LEASE MODAL ── */}
             {bookingModalOpen && room && (
                 <div className="hx-modal-backdrop" onClick={() => !isSubmittingBooking && setBookingModalOpen(false)}>
-                    <div className="hx-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                    <div className="hx-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 660, width: '100%', overflowX: 'hidden' }}>
                         {/* Modal Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                             <div>
@@ -913,10 +913,10 @@ export function RoomTransparencyPage() {
                                     </div>
                                 </div>
 
-                                <div className="hx-fields">
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                                        <label>
-                                            Ngày hẹn / Ngày dọn vào (*)
+                                <div className="hx-modal-form-group">
+                                    <div className="hx-modal-row">
+                                        <label className="hx-modal-field">
+                                            <span>Ngày hẹn / Ngày dọn vào (*)</span>
                                             <input
                                                 type="date"
                                                 required
@@ -926,8 +926,8 @@ export function RoomTransparencyPage() {
                                             />
                                         </label>
 
-                                        <label>
-                                            Khung giờ thuận tiện (*)
+                                        <label className="hx-modal-field">
+                                            <span>Khung giờ thuận tiện (*)</span>
                                             <select
                                                 value={bookingTimeSlot}
                                                 onChange={(e) => setBookingTimeSlot(e.target.value)}
@@ -939,9 +939,9 @@ export function RoomTransparencyPage() {
                                         </label>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                                        <label>
-                                            Họ và tên người thuê (*)
+                                    <div className="hx-modal-row">
+                                        <label className="hx-modal-field">
+                                            <span>Họ và tên người thuê (*)</span>
                                             <input
                                                 type="text"
                                                 required
@@ -951,8 +951,8 @@ export function RoomTransparencyPage() {
                                             />
                                         </label>
 
-                                        <label>
-                                            Số điện thoại liên hệ (*)
+                                        <label className="hx-modal-field">
+                                            <span>Số điện thoại liên hệ (*)</span>
                                             <input
                                                 type="tel"
                                                 required
@@ -963,9 +963,9 @@ export function RoomTransparencyPage() {
                                         </label>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
-                                        <label>
-                                            Email nhận thông báo & hợp đồng
+                                    <div className="hx-modal-row-2-1">
+                                        <label className="hx-modal-field">
+                                            <span>Email nhận thông báo & hợp đồng</span>
                                             <input
                                                 type="email"
                                                 placeholder="VD: ban@email.com"
@@ -974,8 +974,8 @@ export function RoomTransparencyPage() {
                                             />
                                         </label>
 
-                                        <label>
-                                            Số người ở
+                                        <label className="hx-modal-field">
+                                            <span>Số người ở</span>
                                             <input
                                                 type="number"
                                                 min={1}
@@ -986,8 +986,8 @@ export function RoomTransparencyPage() {
                                         </label>
                                     </div>
 
-                                    <label>
-                                        Ghi chú cho chủ trọ (nếu có)
+                                    <label className="hx-modal-field">
+                                        <span>Ghi chú cho chủ trọ (nếu có)</span>
                                         <textarea
                                             rows={2}
                                             placeholder="VD: Mình muốn xem thêm chỗ để xe máy và khóa cửa tầng trệt..."
@@ -997,7 +997,7 @@ export function RoomTransparencyPage() {
                                     </label>
                                 </div>
 
-                                <div className="hx-actions" style={{ marginTop: 22, justifyContent: 'flex-end' }}>
+                                <div className="hx-actions" style={{ marginTop: 22, justifyContent: 'flex-end', display: 'flex', gap: 10 }}>
                                     <button
                                         type="button"
                                         className="hx-outline-button"
