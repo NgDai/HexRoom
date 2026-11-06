@@ -87,6 +87,7 @@ public class Room {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 50)
     @Builder.Default
     private List<RoomImage> images = new ArrayList<>();
 
@@ -96,6 +97,7 @@ public class Room {
         joinColumns = @JoinColumn(name = "room_id"),
         inverseJoinColumns = @JoinColumn(name = "amenity_id")
     )
+    @org.hibernate.annotations.BatchSize(size = 50)
     @Builder.Default
     private Set<Amenity> amenities = new HashSet<>();
 }

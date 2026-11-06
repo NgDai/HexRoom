@@ -2,6 +2,7 @@ package com.hexroom.backend.repository;
 
 import com.hexroom.backend.entity.RentalContract;
 import com.hexroom.backend.entity.enums.ContractStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,13 +16,21 @@ import java.util.UUID;
 @Repository
 public interface RentalContractRepository extends JpaRepository<RentalContract, UUID> {
 
+    @EntityGraph(attributePaths = {"room", "room.rental", "room.rental.location", "tenant", "landlord"})
     List<RentalContract> findByTenantIdOrderByCreatedAtDesc(UUID tenantId);
 
+    @EntityGraph(attributePaths = {"room", "room.rental", "room.rental.location", "tenant", "landlord"})
     List<RentalContract> findByTenantIdAndStatusOrderByCreatedAtDesc(UUID tenantId, ContractStatus status);
 
+    @EntityGraph(attributePaths = {"room", "room.rental", "room.rental.location", "tenant", "landlord"})
     List<RentalContract> findByLandlordIdOrderByCreatedAtDesc(UUID landlordId);
 
+    @EntityGraph(attributePaths = {"room", "room.rental", "room.rental.location", "tenant", "landlord"})
     List<RentalContract> findByLandlordIdAndStatusOrderByCreatedAtDesc(UUID landlordId, ContractStatus status);
+
+    @Override
+    @EntityGraph(attributePaths = {"room", "room.rental", "room.rental.location", "tenant", "landlord"})
+    Optional<RentalContract> findById(UUID id);
 
     Optional<RentalContract> findFirstByRoomIdAndStatus(UUID roomId, ContractStatus status);
 

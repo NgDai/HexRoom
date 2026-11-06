@@ -57,10 +57,12 @@ public class Rental {
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "rental", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 50)
     @Builder.Default
     private List<RentalImage> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "rental", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 50)
     @Builder.Default
     private List<Room> rooms = new ArrayList<>();
 }

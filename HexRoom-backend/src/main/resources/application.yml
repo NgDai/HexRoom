@@ -6,26 +6,34 @@ spring:
     name: hexroom-backend
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require&tcpKeepAlive=true&reWriteBatchedInserts=true}
     username: ${SPRING_DATASOURCE_USERNAME:postgres.rbgzudaemwmmiyihsrbj}
     password: ${SPRING_DATASOURCE_PASSWORD:EXE101PASSABC}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      idle-timeout: 30000
-      max-lifetime: 60000
-      connection-timeout: 30000
-      connection-test-query: SELECT 1
+      pool-name: HexRoomHikariPool
+      maximum-pool-size: 15
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 900000
+      connection-timeout: 20000
+      keepalive-time: 30000
 
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
+    open-in-view: true
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_batch_fetch_size: 50
+        batch_fetch_style: dynamic
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
   servlet:
     multipart:
