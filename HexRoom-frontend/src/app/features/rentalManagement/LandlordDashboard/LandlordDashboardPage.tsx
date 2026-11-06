@@ -351,7 +351,7 @@ export function LandlordDashboardPage() {
                         <Statistic
                             title="Tổng số Nhà cho thuê"
                             value={allTimeStats.rentals.total}
-                            prefix={<HomeOutlined style={{ color: '#1677ff' }} />}
+                            prefix={<HomeOutlined style={{ color: '#059669' }} />}
                         />
                     </Card>
                 </Col>
@@ -395,10 +395,10 @@ export function LandlordDashboardPage() {
                         <Statistic
                             title="Tổng lượt xem phòng"
                             value={allTimeStats.views?.total ?? 4910}
-                            prefix={<EyeOutlined style={{ color: '#1677ff' }} />}
+                            prefix={<EyeOutlined style={{ color: '#059669' }} />}
                         />
                         <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
-                            Tháng này: <strong style={{ color: '#1677ff' }}>+{(allTimeStats.views?.thisMonth ?? 1840).toLocaleString('vi-VN')}</strong>
+                            Tháng này: <strong style={{ color: '#059669' }}>+{(allTimeStats.views?.thisMonth ?? 1840).toLocaleString('vi-VN')}</strong>
                             <span style={{ color: '#52c41a', marginLeft: 6 }}>
                                 (+{allTimeStats.views?.growthRate ?? 18.5}%)
                             </span>
@@ -455,7 +455,7 @@ export function LandlordDashboardPage() {
                         <Card
                             title={
                                 <span>
-                                    <LineChartOutlined style={{ color: '#1677ff', marginRight: 8 }} />
+                                    <LineChartOutlined style={{ color: '#059669', marginRight: 8 }} />
                                     Xu hướng Lượt xem phòng & Lượt yêu thích theo thời gian
                                 </span>
                             }
@@ -466,11 +466,11 @@ export function LandlordDashboardPage() {
                                 <BarChart data={viewsTrendData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="date" />
-                                    <YAxis yAxisId="left" orientation="left" stroke="#1677ff" />
+                                    <YAxis yAxisId="left" orientation="left" stroke="#059669" />
                                     <YAxis yAxisId="right" orientation="right" stroke="#eb2f96" />
                                     <Tooltip />
                                     <Legend />
-                                    <Bar yAxisId="left" dataKey="views" fill="#1677ff" name="Lượt xem phòng (Views)" radius={[4, 4, 0, 0]} />
+                                    <Bar yAxisId="left" dataKey="views" fill="#059669" name="Lượt xem phòng (Views)" radius={[4, 4, 0, 0]} />
                                     <Bar yAxisId="right" dataKey="favorites" fill="#eb2f96" name="Lượt yêu thích (Favorites)" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
@@ -552,7 +552,7 @@ export function LandlordDashboardPage() {
                                     key: 'price',
                                     sorter: (a: RoomPerformanceStat, b: RoomPerformanceStat) => a.price - b.price,
                                     render: (price: number) => (
-                                        <Text style={{ fontWeight: 600, color: '#1677ff' }}>
+                                        <Text style={{ fontWeight: 600, color: '#059669' }}>
                                             {price.toLocaleString('vi-VN')} đ
                                         </Text>
                                     ),
@@ -819,7 +819,7 @@ export function LandlordDashboardPage() {
                         <Statistic
                             title="Phòng đang thuê"
                             value={stats.rooms.byStatus.RENTED}
-                            styles={{ content: { fontSize: 20, color: '#1677ff' } }}
+                            styles={{ content: { fontSize: 20, color: '#059669' } }}
                         />
                     </Card>
                 </Col>
@@ -866,7 +866,7 @@ export function LandlordDashboardPage() {
                                     title="Tỷ lệ chiếm dụng"
                                     value={performance.occupancyRate}
                                     suffix="%"
-                                    prefix={<PercentageOutlined style={{ color: '#1677ff' }} />}
+                                    prefix={<PercentageOutlined style={{ color: '#059669' }} />}
                                     styles={{ content: { fontSize: 20 } }}
                                 />
                                 <div style={{ marginTop: 8 }}>
@@ -979,7 +979,7 @@ export function LandlordDashboardPage() {
                                         {room.location.address}, {room.location.district}
                                     </p>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 14, color: '#1677ff', fontWeight: 'bold' }}>
+                                        <Text style={{ fontSize: 14, color: '#059669', fontWeight: 'bold' }}>
                                             {Number(room.price).toLocaleString('vi-VN')} đ
                                         </Text>
                                     </div>
@@ -1011,7 +1011,7 @@ export function LandlordDashboardPage() {
                                         <YAxis />
                                         <Tooltip />
                                         <Legend />
-                                        <Bar dataKey="current" fill="#1677ff" name={selectedMonthLabel} />
+                                        <Bar dataKey="current" fill="#059669" name={selectedMonthLabel} />
                                         <Bar dataKey="previous" fill="#91caff" name={compareMonthLabel} />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -1087,7 +1087,7 @@ export function LandlordDashboardPage() {
                                         <Statistic
                                             title="Nhà Unavailable"
                                             value={stats.rentals.byStatus.UNAVAILABLE}
-                                            styles={{ content: { color: '#1677ff' } }}
+                                            styles={{ content: { color: '#059669' } }}
                                             prefix={<HomeOutlined />}
                                         />
                                         {renderDelta(stats.rentals.byStatus.UNAVAILABLE, compareStats?.rentals.byStatus.UNAVAILABLE ?? 0)}
@@ -1114,7 +1114,7 @@ export function LandlordDashboardPage() {
                                         <Statistic
                                             title="Phòng đang thuê"
                                             value={stats.rooms.byStatus.RENTED}
-                                            styles={{ content: { color: '#1677ff' } }}
+                                            styles={{ content: { color: '#059669' } }}
                                             prefix={<HomeOutlined />}
                                         />
                                         {renderDelta(stats.rooms.byStatus.RENTED, compareStats?.rooms.byStatus.RENTED ?? 0)}

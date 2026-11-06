@@ -424,7 +424,7 @@ export function AdminUsersPage() {
                                 src={detailUser.avatarUrl}
                                 icon={!detailUser.avatarUrl && <UserOutlined />}
                                 size={64}
-                                style={{ backgroundColor: '#1677ff' }}
+                                style={{ backgroundColor: '#059669' }}
                             />
                             <div>
                                 <Title level={4} style={{ margin: 0 }}>

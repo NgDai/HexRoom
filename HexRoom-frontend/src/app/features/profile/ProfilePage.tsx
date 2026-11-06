@@ -60,7 +60,7 @@ import type { ReviewData, ReportData, FeedbackStatus } from '@/app/features/book
 import { buildBookingReportPayload } from '@/app/features/booking-history/utils';
 import type { ProvinceItem, WardItem } from '@/lib/provinces-api';
 
-type Tab = 'profile' | 'lifestyle' | 'preference' | 'bookings' | 'landlord_criteria' | 'my_rentals';
+type Tab = 'profile' | 'lifestyle' | 'preference' | 'bookings' | 'my_tenancy' | 'landlord_criteria' | 'my_rentals' | 'landlord_tenancy';
 
 export interface LandlordListingCriteriaData {
     contactEmail: string;
@@ -936,10 +936,12 @@ export function ProfilePage() {
         { id: 'preference', label: 'Tiêu chí tìm bạn cùng phòng', icon: Users },
         { id: 'lifestyle', label: 'Phong cách sống của tôi', icon: Heart },
         { id: 'bookings', label: t('profile.tabBookings'), icon: CreditCard },
+        { id: 'my_tenancy', label: 'Phòng tôi thuê', icon: Home },
     ] : [
         { id: 'profile', label: 'Thông tin cá nhân & Liên hệ', icon: User },
         { id: 'landlord_criteria', label: 'Tiêu chuẩn đăng cho thuê', icon: Sliders },
         { id: 'my_rentals', label: 'Nhà trọ & Phòng quản lý', icon: Building2 },
+        { id: 'landlord_tenancy', label: 'Quản lý thuê', icon: Home },
     ];
 
     return (
@@ -2156,6 +2158,40 @@ export function ProfilePage() {
                                 </button>
                             </form>
                         )}
+                    </div>
+                )}
+
+                {/* ── LANDLORD TENANCY TAB ── */}
+                {tab === 'landlord_tenancy' && isLandlord && (
+                    <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 text-center">
+                        <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 grid place-items-center text-primary">
+                            <Home className="w-7 h-7" />
+                        </div>
+                        <h3 className="font-heading font-semibold text-foreground mt-4">Quản lý người thuê</h3>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                            Lập hợp đồng, xác nhận hai chiều, lập hoá đơn tháng và khai báo dịch vụ cho từng phòng.
+                        </p>
+                        <button type="button" onClick={() => navigate('/tenancy-management')}
+                            className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors">
+                            Mở quản lý thuê <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
+
+                {/* ── MY TENANCY TAB ── */}
+                {tab === 'my_tenancy' && isTenant && (
+                    <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 text-center">
+                        <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 grid place-items-center text-primary">
+                            <Home className="w-7 h-7" />
+                        </div>
+                        <h3 className="font-heading font-semibold text-foreground mt-4">Phòng tôi thuê</h3>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                            Xem phòng đang thuê, hợp đồng hai bên xác nhận, hoá đơn hằng tháng và đăng ký dịch vụ tại một nơi.
+                        </p>
+                        <button type="button" onClick={() => navigate('/my-rooms')}
+                            className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors">
+                            Mở quản lý phòng <ArrowRight className="w-4 h-4" />
+                        </button>
                     </div>
                 )}
 

@@ -214,7 +214,7 @@ export function AdminLayout() {
                                 <Avatar
                                     src={user?.avatarUrl}
                                     icon={!user?.avatarUrl && <UserOutlined />}
-                                    style={{ backgroundColor: '#1677ff' }}
+                                    style={{ backgroundColor: '#059669' }}
                                 />
                                 <span style={{ fontWeight: 500 }}>
                                     {user?.fullName || user?.email || t('admin.defaultUser')}

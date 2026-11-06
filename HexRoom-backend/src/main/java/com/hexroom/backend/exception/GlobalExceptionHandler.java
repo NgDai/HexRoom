@@ -35,6 +35,12 @@ public class GlobalExceptionHandler {
                 .message("Dữ liệu gửi lên không đúng định dạng").code("INVALID_INPUT").build());
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMethodNotSupported(Exception ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(ApiResponse.builder().success(false)
+                .message("Phương thức HTTP không được hỗ trợ cho đường dẫn này").code("METHOD_NOT_ALLOWED").build());
+    }
+
     @ExceptionHandler(AppException.class)
     public ResponseEntity<ApiResponse<Object>> handleAppException(AppException ex) {
         ApiResponse<Object> response = ApiResponse.builder()
@@ -82,6 +88,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class)
+                .error("Lỗi hệ thống chưa xử lý: {}", ex.getMessage(), ex);
         ApiResponse<Object> response = ApiResponse.builder()
                 .success(false)
                 .message("Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.")

@@ -78,8 +78,8 @@ const quickLinks = [
         titleVi: 'Hàng đợi duyệt',
         path: '/moderator/queue',
         key: 'openQueueCount' as const,
-        icon: <AuditOutlined style={{ fontSize: 24, color: '#1677ff' }} />,
-        color: '#1677ff',
+        icon: <AuditOutlined style={{ fontSize: 24, color: '#059669' }} />,
+        color: '#059669',
         bgColor: '#e6f4ff',
     },
     {
@@ -264,7 +264,7 @@ export function ModeratorDashboardPage() {
     return (
         <div>
             <Title level={2} style={{ marginBottom: 4 }}>
-                <DashboardOutlined style={{ marginRight: 8, color: '#1677ff' }} />
+                <DashboardOutlined style={{ marginRight: 8, color: '#059669' }} />
                 Moderator Dashboard
             </Title>
             <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
@@ -544,7 +544,7 @@ export function ModeratorDashboardPage() {
                                                             item.target_type === 'report' ? '#fff2f0' :
                                                                 item.target_type === 'review' ? '#fffbe6' : '#f0f0ff',
                                                 color:
-                                                    item.target_type === 'rental' ? '#1677ff' :
+                                                    item.target_type === 'rental' ? '#059669' :
                                                         item.target_type === 'room_post' ? '#13c2c2' :
                                                             item.target_type === 'report' ? '#ff4d4f' :
                                                                 item.target_type === 'review' ? '#faad14' : '#722ed1',

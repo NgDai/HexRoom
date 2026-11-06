@@ -62,6 +62,8 @@ const LayoutModerator = lazy(() => import('@/app/layouts/layout_moderator/Layout
 const ViewLandlordPage = lazy(() => import('@/app/features/lanlord-page').then((m) => ({ default: m.ViewLandlordPage })));
 const ChatPage = lazy(() => import('@/app/features/chat').then((m) => ({ default: m.ChatPage })));
 const WalletPage = lazy(() => import('@/app/features/wallet').then((m) => ({ default: m.WalletPage })));
+const TenantTenancyPage = lazy(() => import('@/app/features/tenancy/TenantTenancyPage').then((m) => ({ default: m.TenantTenancyPage })));
+const LandlordTenancyPage = lazy(() => import('@/app/features/tenancy/LandlordTenancyPage').then((m) => ({ default: m.LandlordTenancyPage })));
 
 const routes = [
     { path: '/how-it-works', element: <HowItWorksPage /> },
@@ -215,6 +217,26 @@ const routes = [
             <ProtectedRoute>
                 <Suspense fallback={<PageLoader />}>
                     <ChatPage />
+                </Suspense>
+            </ProtectedRoute>
+        ),
+    },
+    {
+        path: '/my-rooms',
+        element: (
+            <ProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                    <TenantTenancyPage />
+                </Suspense>
+            </ProtectedRoute>
+        ),
+    },
+    {
+        path: '/tenancy-management',
+        element: (
+            <ProtectedRoute requiredRole={['LANDLORD', 'ADMIN']}>
+                <Suspense fallback={<PageLoader />}>
+                    <LandlordTenancyPage />
                 </Suspense>
             </ProtectedRoute>
         ),

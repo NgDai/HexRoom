@@ -267,7 +267,7 @@ export function AdminRentalsPage() {
                             <Statistic
                                 title={statusLabel('UNAVAILABLE')}
                                 value={stats.byStatus.unavailable || 0}
-                                styles={{ content: { color: '#1890ff' } }}
+                                styles={{ content: { color: '#059669' } }}
                             />
                         </Card>
                     </Col>

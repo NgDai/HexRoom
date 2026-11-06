@@ -1,9 +1,11 @@
 ﻿import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowRight, ArrowUpRight, Banknote, ChevronDown, House, MapPin, Search, ShieldCheck, Users } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Banknote, ChevronDown, House, MapPin, Search, ShieldCheck, Users, FileSignature } from 'lucide-react';
 import { Header, Footer } from './components';
 import { request, money, type ApiRoom, type Page } from '@/lib/hexroom-api';
 import { POPULAR_LOCATIONS, FILTER_PRICE_PRESETS } from '@/lib/constants/room-filters';
+import { useAuth } from '@/app/context/useAuth';
+import { listMyContracts, type Contract } from '@/lib/tenancy-api';
 import './home.css';
 
 const areas = [
@@ -19,6 +21,7 @@ const shortcuts = [
 
 export function HomePage() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [location, setLocation] = useState('');
     const [price, setPrice] = useState('');
     const [rooms, setRooms] = useState<ApiRoom[]>([]);
@@ -26,6 +29,16 @@ export function HomePage() {
     const [error, setError] = useState(false);
     const [reload, setReload] = useState(0);
     const [category, setCategory] = useState('all');
+    const [pendingContracts, setPendingContracts] = useState<Contract[]>([]);
+
+    useEffect(() => {
+        if (!user || user.role !== 'TENANT') { setPendingContracts([]); return; }
+        let active = true;
+        listMyContracts()
+            .then((list) => { if (active) setPendingContracts(list.filter((c) => c.status === 'PENDING_TENANT')); })
+            .catch(() => { if (active) setPendingContracts([]); });
+        return () => { active = false; };
+    }, [user]);
 
     useEffect(() => {
         let active = true;
@@ -53,6 +66,17 @@ export function HomePage() {
         <div className="hx-page home-page">
             <Header onLogin={() => navigate('/login')} onRegister={() => navigate('/register')} />
             <main id="main-content">
+                {pendingContracts.length > 0 && (
+                    <div className="border-b border-amber-200 bg-amber-50">
+                        <div className="hx-container flex flex-wrap items-center justify-between gap-3 py-2.5">
+                            <p className="flex items-center gap-2 text-sm text-amber-900">
+                                <FileSignature size={17} />
+                                Bạn có {pendingContracts.length} hợp đồng thuê đang chờ xác nhận.
+                            </p>
+                            <Link to="/my-rooms" className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">Xem ngay</Link>
+                        </div>
+                    </div>
+                )}
                 <section className="home-hero" aria-labelledby="home-title">
                     <img className="home-hero-image" src="/images/home-room.jpg" alt="Căn phòng thoáng sáng với cửa sổ lớn, bàn ăn và góc nghỉ ngơi" fetchPriority="high" width={2400} height={1600} />
                     <div className="home-hero-shade" />

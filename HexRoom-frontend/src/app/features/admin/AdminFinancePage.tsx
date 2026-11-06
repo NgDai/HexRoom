@@ -404,7 +404,7 @@ export function AdminFinancePage() {
                         <YAxis />
                         <Tooltip formatter={(value) => formatMoney(Number(value || 0))} />
                         <Legend />
-                        <Bar dataKey="amount" name={t('admin.finance.charts.amount')} fill="#1677ff" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="amount" name={t('admin.finance.charts.amount')} fill="#059669" radius={[6, 6, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
             </Card>

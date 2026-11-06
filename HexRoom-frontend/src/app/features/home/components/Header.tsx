@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowUpRight, ChevronDown, LogOut, User, Heart, CalendarDays } from 'lucide-react';
+import { Menu, X, ArrowUpRight, ChevronDown, LogOut, User, Heart, CalendarDays, Home } from 'lucide-react';
 import { useAuth } from '@/app/context/useAuth';
 import '@/app/features/hexroom/hexroom.css';
 import '@/app/design-system.css';
@@ -34,10 +34,16 @@ export function Header({ onLogin, onRegister }: { onLogin?: () => void; onRegist
                 <NavLink to="/history">Lịch hẹn</NavLink>
             )}
 
+            {/* Người thuê: quản lý phòng đang thuê sau khi hợp đồng được xác nhận */}
+            {user && (user.role === 'TENANT' || user.role === 'ADMIN') && (
+                <NavLink to="/my-rooms">Phòng của tôi</NavLink>
+            )}
+
             {/* Chủ trọ & Admin: Quản lý phòng & ＋ Đăng phòng trọ */}
             {user && ['LANDLORD', 'ADMIN'].includes(user.role ?? '') && (
                 <>
                     <NavLink to="/workspace">Quản lý phòng</NavLink>
+                    <NavLink to="/tenancy-management">Quản lý thuê</NavLink>
                     <Link to="/workspace?mode=room" className="hx-nav-post-pill" style={{ color: '#059669', fontWeight: 750, background: '#ECFDF5', padding: '6px 14px', borderRadius: '999px', border: '1px solid #A7F3D0' }}>
                         ＋ Đăng phòng
                     </Link>
@@ -59,7 +65,8 @@ export function Header({ onLogin, onRegister }: { onLogin?: () => void; onRegist
                 <summary aria-label="Menu tài khoản"><span className="hx-account-avatar">{user.fullName?.trim().split(/\s+/).pop()?.slice(0, 1) || <User size={16} />}</span><span className="hx-account-name">{user.fullName || 'Tài khoản'}</span><ChevronDown size={14} /></summary>
                 <div className="hx-account-dropdown" onClick={event => { const details = event.currentTarget.closest('details'); if (details) details.open = false; }}>
                     <Link to="/profile"><User size={16} /> Hồ sơ của tôi</Link>
-                    {user.role === 'TENANT' && <><Link to="/favorites"><Heart size={16} /> Phòng đã lưu</Link><Link to="/history"><CalendarDays size={16} /> Lịch hẹn</Link></>}
+                    {user.role === 'TENANT' && <><Link to="/favorites"><Heart size={16} /> Phòng đã lưu</Link><Link to="/history"><CalendarDays size={16} /> Lịch hẹn</Link><Link to="/my-rooms"><Home size={16} /> Phòng của tôi</Link></>}
+                    {user.role === 'LANDLORD' && <Link to="/tenancy-management"><Home size={16} /> Quản lý thuê</Link>}
                     <button onClick={() => signOut().then(() => navigate('/home')).catch(e => setError(e.message))}><LogOut size={16} /> Đăng xuất</button>
                 </div>
             </details>

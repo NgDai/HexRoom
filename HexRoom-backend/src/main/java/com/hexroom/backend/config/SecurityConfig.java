@@ -71,6 +71,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/moderator/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR")
                         .requestMatchers("/api/inspections/**", "/api/rooms/*/inspections/**").hasAnyRole("ADMIN", "MODERATOR", "INSPECTOR", "LANDLORD")
                         .requestMatchers("/api/rooms/manage", "/api/rentals/mine").hasAnyRole("LANDLORD", "ADMIN", "MODERATOR")
+                        // Tenancy management: both sides must be authenticated; ownership is enforced in services
+                        .requestMatchers("/api/tenancy/**").authenticated()
                         .requestMatchers("/api/upload/**").authenticated()
                         // Public GET endpoints for browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/locations/**").permitAll()

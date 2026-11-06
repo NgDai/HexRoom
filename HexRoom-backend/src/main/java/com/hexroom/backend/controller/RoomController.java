@@ -30,6 +30,28 @@ import java.util.UUID;
 public class RoomController {
 
     private final RoomService roomService;
+    private final com.hexroom.backend.service.ContractService contractService;
+
+    public record AddOccupantRequest(
+            @jakarta.validation.constraints.NotNull UUID tenantId,
+            @jakarta.validation.constraints.NotNull java.time.LocalDate startDate,
+            java.time.LocalDate endDate,
+            @jakarta.validation.constraints.NotNull BigDecimal actualPrice,
+            BigDecimal deposit) {}
+
+    @PostMapping("/{id}/contracts")
+    @PreAuthorize("hasAnyRole('LANDLORD', 'ADMIN')")
+    @Operation(summary = "Thêm người ở — tạo hợp đồng chờ người thuê xác nhận")
+    public ResponseEntity<ApiResponse<com.hexroom.backend.dto.tenancy.ContractResponse>> addOccupant(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal user,
+            @Valid @RequestBody AddOccupantRequest request) {
+        var req = new com.hexroom.backend.dto.tenancy.CreateContractRequest(
+                id, request.tenantId(), request.startDate(), request.endDate(),
+                request.actualPrice(), request.deposit(), 1, 5, null, null, null);
+        var created = contractService.create(user.getId(), req);
+        return new ResponseEntity<>(ApiResponse.success("Đã gửi hợp đồng cho người thuê", created), HttpStatus.CREATED);
+    }
 
     @GetMapping
     @Operation(summary = "Tìm kiếm và lọc danh sách phòng trọ")
@@ -76,9 +98,10 @@ public class RoomController {
     }
 
     @GetMapping("/my-bookings")
-    @Operation(summary = "Lấy danh sách phòng đã thuê/đặt của người dùng hiện tại")
-    public ResponseEntity<ApiResponse<java.util.List<Object>>> getMyBookings(@AuthenticationPrincipal UserPrincipal user) {
-        return ResponseEntity.ok(ApiResponse.success(java.util.Collections.emptyList()));
+    @Operation(summary = "Lịch sử thuê phòng của người dùng hiện tại")
+    public ResponseEntity<ApiResponse<java.util.List<com.hexroom.backend.dto.tenancy.ContractResponse>>> getMyBookings(
+            @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseEntity.ok(ApiResponse.success(contractService.listForTenant(user.getId())));
     }
 
     @GetMapping("/manage")
@@ -103,6 +126,30 @@ public class RoomController {
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
     public ResponseEntity<ApiResponse<RoomResponse>> moderate(@PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
         return ResponseEntity.ok(ApiResponse.success(roomService.moderate(id, request.status())));
+    }
+
+    @GetMapping("/search-tenants")
+    @PreAuthorize("hasAnyRole('LANDLORD', 'ADMIN', 'MODERATOR')")
+    @Operation(summary = "Tìm tài khoản người thuê theo email hoặc số điện thoại")
+    public ResponseEntity<ApiResponse<java.util.List<com.hexroom.backend.controller.ContractController.TenantLookup>>> searchTenants(
+            @RequestParam String q) {
+        String query = q == null ? "" : q.trim();
+        if (query.length() < 2) return ResponseEntity.ok(ApiResponse.success(java.util.List.of()));
+        var found = contractService.searchTenants(query).stream()
+                .map(u -> new com.hexroom.backend.controller.ContractController.TenantLookup(
+                        u.getId(), u.getFullName(), u.getEmail(), u.getPhone(), u.getAvatarUrl(), u.getGender()))
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(found));
+    }
+
+    @GetMapping("/{id}/tenants")
+    @PreAuthorize("hasAnyRole('LANDLORD', 'ADMIN', 'MODERATOR')")
+    @Operation(summary = "Danh sách hợp đồng/người ở của một phòng")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> roomOccupants(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal user) {
+        var list = contractService.listForRoom(id, user.getId());
+        return ResponseEntity.ok(ApiResponse.success(java.util.Map.of("rentals", list, "preorders", java.util.List.of())));
     }
 
     @PostMapping

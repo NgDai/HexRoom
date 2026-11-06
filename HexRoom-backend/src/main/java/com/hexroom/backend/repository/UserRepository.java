@@ -22,4 +22,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByEmail(String email);
 
     Page<User> findByRole(UserRole role, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("""
+            select u from User u
+            where (lower(u.email) like lower(concat('%', :q, '%'))
+                   or u.phone like concat('%', :q, '%'))
+              and u.role = com.hexroom.backend.entity.enums.UserRole.TENANT
+            """)
+    java.util.List<User> searchTenants(@org.springframework.data.repository.query.Param("q") String q, Pageable pageable);
 }

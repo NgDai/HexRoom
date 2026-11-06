@@ -178,7 +178,7 @@ export function ViewingHistoryPage() {
                         <Statistic
                             title={<span style={{ fontWeight: 600, color: '#475569' }}>Tổng lượt hẹn coi phòng</span>}
                             value={stats.total}
-                            prefix={<CalendarOutlined style={{ color: '#1677ff' }} />}
+                            prefix={<CalendarOutlined style={{ color: '#059669' }} />}
                             styles={{ content: { fontWeight: 800, color: '#0f172a' } }}
                         />
                         <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>

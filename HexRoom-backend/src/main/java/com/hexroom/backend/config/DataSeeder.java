@@ -33,6 +33,9 @@ public class DataSeeder implements CommandLineRunner {
     private final LifestyleProfileRepository lifestyleProfileRepository;
     private final UserPreferenceRepository userPreferenceRepository;
     private final RoommateProfileRepository roommateProfileRepository;
+    private final RentalContractRepository rentalContractRepository;
+    private final RoomServiceRepository roomServiceRepository;
+    private final RentalInvoiceRepository rentalInvoiceRepository;
     private final JdbcTemplate jdbcTemplate;
 
     @Override
@@ -362,6 +365,7 @@ public class DataSeeder implements CommandLineRunner {
             );
 
             log.info("HexRoom seed completed successfully! All accounts, published rentals, and roommates are ready.");
+            seedTenancyDemo();
         } catch (Exception e) {
             log.error("Lỗi trong quá trình khởi tạo DataSeeder: {}", e.getMessage(), e);
         }
@@ -394,6 +398,89 @@ public class DataSeeder implements CommandLineRunner {
             userRepository.save(admin);
         } catch (Exception ex) {
             log.warn("Lưu ý seed admin {}: {}", email, ex.getMessage());
+        }
+    }
+
+    /**
+     * Dữ liệu minh hoạ cho tính năng quản lý trọ (hợp đồng đã kích hoạt, hoá đơn tháng,
+     * dịch vụ). Chỉ chạy khi bật HEXROOM_SEED_TENANCY=true để không tạo dữ liệu thuê giả
+     * trên môi trường thật. Bỏ qua nếu đã có hợp đồng.
+     */
+    private void seedTenancyDemo() {
+        if (!Boolean.parseBoolean(System.getenv().getOrDefault("HEXROOM_SEED_TENANCY", "false"))) {
+            return;
+        }
+        try {
+            if (rentalContractRepository.count() > 0) {
+                log.info("Bỏ qua seed tenancy: đã có hợp đồng trong hệ thống.");
+                return;
+            }
+            User landlord = userRepository.findByEmail("landlord@hexroom.vn").orElse(null);
+            User tenant = userRepository.findByEmail("nguyendai2412005@gmail.com").orElse(null);
+            if (landlord == null || tenant == null) return;
+
+            Room room = roomRepository.findByRentalId(
+                            rentalRepository.findByTitle("Tòa nhà căn hộ dịch vụ HexHouse Bình Thạnh").stream()
+                                    .findFirst().map(Rental::getId).orElse(null))
+                    .stream().findFirst().orElse(null);
+            if (room == null) return;
+
+            RentalContract contract = RentalContract.builder()
+                    .contractCode("HD-DEMO-0001")
+                    .room(room).tenant(tenant).landlord(landlord)
+                    .status(com.hexroom.backend.entity.enums.ContractStatus.ACTIVE)
+                    .startDate(LocalDate.now().minusMonths(2))
+                    .endDate(LocalDate.now().plusMonths(10))
+                    .monthlyRent(room.getPrice())
+                    .depositAmount(room.getPrice())
+                    .paymentCycleMonths(1).billingDay(5)
+                    .depositPaid(true)
+                    .tenantConfirmedAt(LocalDateTime.now().minusMonths(2))
+                    .landlordConfirmedAt(LocalDateTime.now().minusMonths(2))
+                    .activatedAt(LocalDateTime.now().minusMonths(2))
+                    .build();
+            rentalContractRepository.save(contract);
+
+            List<RoomService> services = List.of(
+                    roomServiceRepository.save(RoomService.builder().room(room).name("Điện")
+                            .category(com.hexroom.backend.entity.enums.ServiceCategory.ELECTRICITY)
+                            .unitPrice(new BigDecimal("3800")).unit("kWh").build()),
+                    roomServiceRepository.save(RoomService.builder().room(room).name("Nước")
+                            .category(com.hexroom.backend.entity.enums.ServiceCategory.WATER)
+                            .unitPrice(new BigDecimal("20000")).unit("m³").build()),
+                    roomServiceRepository.save(RoomService.builder().room(room).name("Internet")
+                            .category(com.hexroom.backend.entity.enums.ServiceCategory.INTERNET)
+                            .unitPrice(new BigDecimal("100000")).unit("tháng").build())
+            );
+
+            LocalDate period = LocalDate.now().withDayOfMonth(1);
+            BigDecimal serviceTotal = services.stream()
+                    .map(RoomService::getUnitPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+            RentalInvoice invoice = RentalInvoice.builder()
+                    .invoiceCode("HDT-DEMO-0001")
+                    .contract(contract)
+                    .billingMonth(period.getMonthValue()).billingYear(period.getYear())
+                    .roomAmount(room.getPrice())
+                    .serviceAmount(serviceTotal)
+                    .otherAmount(BigDecimal.ZERO)
+                    .totalAmount(room.getPrice().add(serviceTotal))
+                    .status(com.hexroom.backend.entity.enums.InvoiceStatus.ISSUED)
+                    .dueDate(period.plusMonths(1).withDayOfMonth(5))
+                    .build();
+            invoice.getItems().add(RentalInvoiceItem.builder().invoice(invoice)
+                    .name("Tiền phòng tháng " + period.getMonthValue() + "/" + period.getYear())
+                    .quantity(BigDecimal.ONE).unit("tháng").unitPrice(room.getPrice()).amount(room.getPrice()).build());
+            for (RoomService s : services) {
+                invoice.getItems().add(RentalInvoiceItem.builder().invoice(invoice)
+                        .serviceId(s.getId()).name(s.getName()).category(s.getCategory())
+                        .quantity(BigDecimal.ONE).unit(s.getUnit())
+                        .unitPrice(s.getUnitPrice()).amount(s.getUnitPrice()).build());
+            }
+            rentalInvoiceRepository.save(invoice);
+            log.info("Đã tạo dữ liệu minh hoạ tenancy: hợp đồng {} + hoá đơn {}",
+                    contract.getContractCode(), invoice.getInvoiceCode());
+        } catch (Exception ex) {
+            log.warn("Lưu ý seed tenancy: {}", ex.getMessage());
         }
     }
 
@@ -638,11 +725,13 @@ public class DataSeeder implements CommandLineRunner {
 
             Rental rental = rentalRepository.findByTitle(rentalTitle).stream().findFirst().orElse(null);
             if (rental == null) {
-                Location location = locationRepository.save(Location.builder()
+                // Rental cascades PERSIST to Location, so store the relation directly instead of
+                // saving Location first — a detached Location would fail on persist.
+                Location location = Location.builder()
                         .address(address)
                         .district(district)
                         .city(city)
-                        .build());
+                        .build();
 
                 rental = rentalRepository.save(Rental.builder()
                         .owner(owner)

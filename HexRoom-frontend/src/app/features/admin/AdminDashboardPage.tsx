@@ -30,7 +30,7 @@ import { getAdminStats, getRentalStats, type AdminStats, type RentalStats } from
 
 const { Title, Text } = Typography;
 
-const COLORS = ['#1677ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1'];
+const COLORS = ['#059669', '#52c41a', '#faad14', '#ff4d4f', '#722ed1'];
 
 export function AdminDashboardPage() {
     const { t, i18n } = useTranslation();
@@ -74,7 +74,7 @@ export function AdminDashboardPage() {
     const rentalStatusData = rentalStats
         ? [
             { name: t('admin.dashboard.rentalStatus.available'), value: rentalStats.byStatus.available, fill: '#52c41a' },
-            { name: t('admin.dashboard.rentalStatus.unavailable'), value: rentalStats.byStatus.unavailable, fill: '#1677ff' },
+            { name: t('admin.dashboard.rentalStatus.unavailable'), value: rentalStats.byStatus.unavailable, fill: '#059669' },
             { name: t('admin.dashboard.rentalStatus.hidden'), value: rentalStats.byStatus.hidden, fill: '#faad14' },
             { name: t('admin.dashboard.rentalStatus.violate'), value: rentalStats.byStatus.violate, fill: '#ff4d4f' },
             { name: t('admin.dashboard.rentalStatus.pending'), value: rentalStats.byStatus.pending, fill: '#722ed1' },
@@ -94,7 +94,7 @@ export function AdminDashboardPage() {
                         <Statistic
                             title={t('admin.dashboard.kpis.totalUsers')}
                             value={adminStats?.users.total || 0}
-                            prefix={<UserOutlined style={{ color: '#1677ff' }} />}
+                            prefix={<UserOutlined style={{ color: '#059669' }} />}
                         />
                     </Card>
                 </Col>
@@ -136,7 +136,7 @@ export function AdminDashboardPage() {
                         <Statistic
                             title={t('admin.dashboard.kpis.totalWallets')}
                             value={adminStats?.wallets?.total || 0}
-                            prefix={<WalletOutlined style={{ color: '#13c2c2' }} />}
+                            prefix={<WalletOutlined style={{ color: '#F59E0B' }} />}
                         />
                     </Card>
                 </Col>
@@ -290,7 +290,7 @@ export function AdminDashboardPage() {
                                 <Statistic
                                     title={t('admin.dashboard.systemStatus.unavailableRentals')}
                                     value={rentalStats?.byStatus.unavailable || 0}
-                                    styles={{ content: { color: '#1677ff' } }}
+                                    styles={{ content: { color: '#059669' } }}
                                     prefix={<HomeOutlined />}
                                 />
                             </Col>
